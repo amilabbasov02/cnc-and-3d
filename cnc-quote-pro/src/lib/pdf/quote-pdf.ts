@@ -1,0 +1,142 @@
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import type { QuoteResult, Dimensions } from "@/lib/pricing/types";
+
+const usd = (n: number) => `$${n.toFixed(2)}`;
+
+const SLATE_900: [number, number, number] = [15, 23, 42];
+const SLATE_500: [number, number, number] = [100, 116, 139];
+const SLATE_400: [number, number, number] = [148, 163, 184];
+const BLUE_600: [number, number, number] = [37, 99, 235];
+
+export interface QuotePdfData {
+  result: QuoteResult;
+  dimensions: Dimensions;
+  finishingNames: string[];
+  customer?: string;
+}
+
+/** Build and download a one-page PDF quotation. Browser-only (uses jsPDF). */
+export function downloadQuotePdf(data: QuotePdfData): string {
+  const { result, dimensions, finishingNames } = data;
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const margin = 48;
+
+  // --- Header band ---
+  doc.setFillColor(...SLATE_900);
+  doc.rect(0, 0, W, 92, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.text("MachQuote", margin, 50);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(...SLATE_400);
+  doc.text("CNC Machining Quotation", margin, 70);
+
+  const quoteNo = `MQ-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+  const date = new Date().toLocaleDateString("en-GB");
+  doc.setTextColor(226, 232, 240);
+  doc.setFontSize(10);
+  doc.text(`Quote #: ${quoteNo}`, W - margin, 42, { align: "right" });
+  doc.text(`Date: ${date}`, W - margin, 58, { align: "right" });
+  doc.text("Valid: 30 days", W - margin, 74, { align: "right" });
+
+  // --- Part summary ---
+  let y = 124;
+  doc.setTextColor(...SLATE_900);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text("Part summary", margin, y);
+  y += 8;
+  doc.setDrawColor(226, 232, 240);
+  doc.line(margin, y, W - margin, y);
+  y += 20;
+
+  const summary: [string, string][] = [
+    ["Material", result.materialName],
+    ["Dimensions", `${dimensions.length} x ${dimensions.width} x ${dimensions.height} mm`],
+    ["Quantity", `${result.quantity} pcs`],
+    ["Finishing", finishingNames.length ? finishingNames.join(", ") : "As machined"],
+    ["Lead time", `${result.leadTimeDays} working days${result.expedited ? " (expedited)" : ""}`],
+    ["Stock mass", `${result.stockMassKg.toFixed(3)} kg / part`],
+  ];
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  for (const [k, v] of summary) {
+    doc.setTextColor(...SLATE_500);
+    doc.text(k, margin, y);
+    doc.setTextColor(...SLATE_900);
+    doc.text(v, margin + 120, y);
+    y += 17;
+  }
+
+  // --- Cost breakdown table ---
+  y += 12;
+  const q = result.quantity;
+  const b = result.breakdown;
+  autoTable(doc, {
+    startY: y,
+    head: [["Cost component", "Per part", "Batch total"]],
+    body: [
+      ["Material", usd(b.material), usd(b.material * q)],
+      ["Machining", usd(b.machining), usd(b.machining * q)],
+      ["Setup (amortised)", usd(b.setup), usd(b.setup * q)],
+      ["Tooling (amortised)", usd(b.tooling), usd(b.tooling * q)],
+      ["Finishing", usd(b.finishing), usd(b.finishing * q)],
+      ["Overhead", usd(b.overhead), usd(b.overhead * q)],
+      ["Cost subtotal", usd(result.costPerPart), usd(result.costPerPart * q)],
+    ],
+    theme: "striped",
+    headStyles: { fillColor: BLUE_600 },
+    styles: { fontSize: 10, cellPadding: 5 },
+    columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
+    margin: { left: margin, right: margin },
+  });
+
+  const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+
+  // --- Totals ---
+  let ty = finalY + 24;
+  const lblX = W - margin - 220;
+  const valX = W - margin;
+  const drawTotal = (
+    label: string,
+    value: string,
+    bold = false,
+    color: [number, number, number] = SLATE_900,
+  ) => {
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setFontSize(bold ? 13 : 10);
+    doc.setTextColor(color[0], color[1], color[2]);
+    doc.text(label, lblX, ty);
+    doc.text(value, valX, ty, { align: "right" });
+    ty += bold ? 22 : 16;
+  };
+
+  drawTotal("Price per part", usd(result.pricePerPart));
+  if (result.expedited) drawTotal("Rush surcharge", "included");
+  if (result.minimumApplied) drawTotal("Minimum lot price applied", "yes");
+  doc.setDrawColor(226, 232, 240);
+  doc.line(lblX, ty - 6, valX, ty - 6);
+  ty += 6;
+  drawTotal(`Total (${q} pcs)`, usd(result.totalPrice), true, BLUE_600);
+
+  // --- Footer ---
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...SLATE_400);
+  doc.text(
+    "This quotation is an estimate based on the information provided and is valid for 30 days. " +
+      "Prices in USD, excluding shipping and applicable taxes.",
+    margin,
+    H - 48,
+    { maxWidth: W - margin * 2 },
+  );
+  doc.text("Generated by MachQuote — instant CNC quoting.", margin, H - 30);
+
+  doc.save(`${quoteNo}.pdf`);
+  return quoteNo;
+}

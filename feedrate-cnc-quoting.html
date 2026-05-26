@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FEEDRATE — CNC Anında Qiymət Mühərriki</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{
+  --bg:#0d0e10; --surface:#15171a; --surface-2:#1b1e22; --surface-3:#22262b;
+  --border:#2b2f35; --border-bright:#3b4047;
+  --text:#e9e7e2; --text-dim:#9a9ea4; --text-faint:#62666c;
+  --amber:#ffb300; --amber-deep:#c98a06; --cyan:#46c9c1; --red:#ff5d5d;
+  --green:#57c98a; --blue:#5c9cff;
+  --fd:'Chakra Petch',sans-serif; --fm:'IBM Plex Mono',monospace; --fb:'IBM Plex Sans',sans-serif;
+  --chamfer:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,7px 100%,0 calc(100% - 7px));
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--text); font-family:var(--fb);
+  font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  background-image:
+    linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);
+  background-size:46px 46px;
+}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:0}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select{font-family:inherit}
+.mono{font-family:var(--fm)}
+
+/* ---------- LAYOUT ---------- */
+.app{display:flex;min-height:100vh}
+.sidebar{
+  width:248px;flex-shrink:0;background:var(--surface);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;
+}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+
+/* ---------- SIDEBAR ---------- */
+.brand{padding:22px 22px 18px;border-bottom:1px solid var(--border)}
+.brand-logo{display:flex;align-items:center;gap:11px}
+.brand-mark{
+  width:34px;height:34px;flex-shrink:0;background:var(--amber);
+  clip-path:var(--chamfer);display:grid;place-items:center;
+}
+.brand-mark svg{width:20px;height:20px}
+.brand-name{font-family:var(--fd);font-weight:700;font-size:18px;letter-spacing:1.5px}
+.brand-sub{font-family:var(--fm);font-size:9.5px;color:var(--text-faint);letter-spacing:1.5px;margin-top:3px}
+.nav{padding:16px 12px;flex:1}
+.nav-label{font-family:var(--fm);font-size:9.5px;color:var(--text-faint);letter-spacing:1.8px;padding:0 10px 9px}
+.nav-item{
+  display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;
+  color:var(--text-dim);font-size:13.5px;font-weight:500;border-radius:3px;
+  margin-bottom:2px;transition:.13s;position:relative;text-align:left;
+}
+.nav-item svg{width:17px;height:17px;flex-shrink:0;stroke:currentColor}
+.nav-item:hover{background:var(--surface-2);color:var(--text)}
+.nav-item.active{background:var(--surface-3);color:var(--text)}
+.nav-item.active::before{
+  content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;background:var(--amber)
+}
+.nav-kbd{margin-left:auto;font-family:var(--fm);font-size:10px;color:var(--text-faint);
+  border:1px solid var(--border);padding:1px 5px;border-radius:2px}
+.sb-status{margin:12px;padding:13px;background:var(--surface-2);border:1px solid var(--border);clip-path:var(--chamfer)}
+.sb-status-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-dim)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 7px var(--green)}
+.sb-meter{height:5px;background:var(--bg);margin-top:9px;border-radius:2px;overflow:hidden}
+.sb-meter i{display:block;height:100%;width:68%;background:linear-gradient(90deg,var(--cyan),var(--amber))}
+.sb-meter-cap{display:flex;justify-content:space-between;font-family:var(--fm);font-size:9.5px;color:var(--text-faint);margin-top:6px}
+.sb-user{padding:14px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:11px}
+.avatar{width:32px;height:32px;background:var(--surface-3);border:1px solid var(--border-bright);
+  display:grid;place-items:center;font-family:var(--fd);font-weight:600;font-size:13px;color:var(--amber);clip-path:var(--chamfer)}
+.sb-user-name{font-size:12.5px;font-weight:600}
+.sb-user-role{font-family:var(--fm);font-size:9.5px;color:var(--text-faint)}
+
+/* ---------- TOPBAR ---------- */
+.topbar{
+  height:62px;border-bottom:1px solid var(--border);background:rgba(21,23,26,.8);
+  backdrop-filter:blur(8px);display:flex;align-items:center;padding:0 28px;gap:18px;
+  position:sticky;top:0;z-index:20;
+}
+.crumb{font-family:var(--fm);font-size:11px;color:var(--text-faint);letter-spacing:.5px}
+.crumb b{color:var(--text);font-weight:500}
+.topbar-spacer{flex:1}
+.tsearch{
+  display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);
+  padding:7px 12px;width:240px;color:var(--text-faint);font-size:12px;border-radius:3px;
+}
+.tsearch svg{width:14px;height:14px}
+.tbtn{
+  display:flex;align-items:center;gap:7px;padding:8px 14px;background:var(--amber);color:#1a1306;
+  font-family:var(--fd);font-weight:600;font-size:12.5px;letter-spacing:.3px;clip-path:var(--chamfer);transition:.14s;
+}
+.tbtn:hover{background:#ffc233}
+.tbtn svg{width:15px;height:15px;stroke-width:2.4}
+.tbtn.ghost{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
+.tbtn.ghost:hover{border-color:var(--border-bright);background:var(--surface-3)}
+.icon-btn{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--border);
+  background:var(--surface);border-radius:3px;color:var(--text-dim);position:relative}
+.icon-btn svg{width:16px;height:16px}
+.icon-btn .bdg{position:absolute;top:-5px;right:-5px;width:15px;height:15px;background:var(--amber);
+  color:#1a1306;font-size:9px;font-weight:700;border-radius:50%;display:grid;place-items:center;font-family:var(--fm)}
+
+/* ---------- CONTENT ---------- */
+.content{padding:28px;flex:1}
+.page{display:none;animation:fade .32s ease}
+.page.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+
+.phead{margin-bottom:24px}
+.phead h1{font-family:var(--fd);font-weight:700;font-size:26px;letter-spacing:.3px}
+.phead p{color:var(--text-dim);font-size:13px;margin-top:4px;max-width:620px}
+.eyebrow{font-family:var(--fm);font-size:10px;letter-spacing:2px;color:var(--amber);margin-bottom:7px}
+
+/* tick ruler */
+.ruler{height:16px;display:flex;align-items:flex-end;gap:0;margin:-6px 0 20px;opacity:.5}
+.ruler i{flex:1;border-left:1px solid var(--border-bright);height:5px}
+.ruler i:nth-child(5n+1){height:11px}
+
+/* cards */
+.card{background:var(--surface);border:1px solid var(--border);padding:20px;border-radius:3px}
+.card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.card-h h3{font-family:var(--fd);font-weight:600;font-size:14px;letter-spacing:.4px}
+.card-h .tag{font-family:var(--fm);font-size:9.5px;color:var(--text-faint);letter-spacing:1px}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--border);padding:18px;position:relative;overflow:hidden;clip-path:var(--chamfer)}
+.kpi::after{content:"";position:absolute;right:-30px;top:-30px;width:80px;height:80px;
+  background:radial-gradient(circle,rgba(255,179,0,.09),transparent 70%)}
+.kpi-label{font-family:var(--fm);font-size:10px;letter-spacing:1.3px;color:var(--text-faint);display:flex;align-items:center;gap:6px}
+.kpi-val{font-family:var(--fd);font-weight:700;font-size:30px;margin:9px 0 3px;letter-spacing:.5px}
+.kpi-val small{font-size:14px;color:var(--text-dim);font-weight:500}
+.kpi-delta{font-family:var(--fm);font-size:11px;display:flex;align-items:center;gap:5px}
+.kpi-delta.up{color:var(--green)} .kpi-delta.down{color:var(--red)}
+.kpi-spark{position:absolute;bottom:0;left:0;right:0;height:34px;opacity:.55}
+
+.grid-2{display:grid;grid-template-columns:1.6fr 1fr;gap:14px}
+.grid-2b{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+
+/* table */
+table{width:100%;border-collapse:collapse}
+th{font-family:var(--fm);font-size:10px;letter-spacing:1px;color:var(--text-faint);
+  text-align:left;padding:9px 12px;border-bottom:1px solid var(--border);font-weight:500}
+td{padding:11px 12px;border-bottom:1px solid var(--border);font-size:13px}
+tr:last-child td{border-bottom:none}
+tbody tr{transition:.1s}
+tbody tr:hover{background:var(--surface-2)}
+.td-mono{font-family:var(--fm);font-size:12.5px}
+.pill{display:inline-flex;align-items:center;gap:5px;font-family:var(--fm);font-size:10px;
+  padding:3px 8px;border-radius:2px;letter-spacing:.5px;font-weight:500}
+.pill::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.pill.won{color:var(--green);background:rgba(87,201,138,.12)}
+.pill.sent{color:var(--blue);background:rgba(92,156,255,.12)}
+.pill.draft{color:var(--text-dim);background:var(--surface-3)}
+.pill.lost{color:var(--red);background:rgba(255,93,93,.12)}
+.pill.review{color:var(--amber);background:rgba(255,179,0,.12)}
+
+/* utilization rows */
+.util-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)}
+.util-row:last-child{border:none}
+.util-name{font-size:12.5px;width:128px;flex-shrink:0}
+.util-name span{font-family:var(--fm);font-size:9.5px;color:var(--text-faint);display:block}
+.util-bar{flex:1;height:7px;background:var(--bg);border-radius:2px;overflow:hidden}
+.util-bar i{display:block;height:100%;border-radius:2px}
+.util-pct{font-family:var(--fm);font-size:12px;width:42px;text-align:right}
+
+/* activity feed */
+.feed-item{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--border)}
+.feed-item:last-child{border:none}
+.feed-ic{width:28px;height:28px;flex-shrink:0;border:1px solid var(--border);display:grid;place-items:center;
+  background:var(--surface-2);border-radius:3px}
+.feed-ic svg{width:14px;height:14px}
+.feed-txt{font-size:12.5px;color:var(--text-dim)}
+.feed-txt b{color:var(--text);font-weight:600}
+.feed-time{font-family:var(--fm);font-size:10px;color:var(--text-faint);margin-top:2px}
+
+/* ---------- STEPPER ---------- */
+.stepper{display:flex;gap:0;margin-bottom:24px;border:1px solid var(--border);background:var(--surface);clip-path:var(--chamfer)}
+.step{flex:1;padding:14px 18px;display:flex;align-items:center;gap:11px;position:relative;transition:.15s}
+.step:not(:last-child)::after{content:"";position:absolute;right:0;top:10px;bottom:10px;width:1px;background:var(--border)}
+.step:hover{background:var(--surface-2)}
+.step-num{width:26px;height:26px;flex-shrink:0;border:1px solid var(--border-bright);display:grid;place-items:center;
+  font-family:var(--fd);font-weight:600;font-size:12px;color:var(--text-faint);border-radius:50%}
+.step.done .step-num{background:var(--cyan);color:#06201f;border-color:var(--cyan)}
+.step.current .step-num{background:var(--amber);color:#1a1306;border-color:var(--amber)}
+.step-txt small{font-family:var(--fm);font-size:9px;color:var(--text-faint);letter-spacing:1px;display:block}
+.step-txt b{font-size:13px;font-weight:600;font-family:var(--fd)}
+.step.current .step-txt b{color:var(--amber)}
+.substep{display:none}
+.substep.active{display:block;animation:fade .3s ease}
+
+/* ---------- UPLOAD ---------- */
+.drop{
+  border:1.5px dashed var(--border-bright);background:var(--surface);
+  padding:54px 30px;text-align:center;border-radius:4px;transition:.18s;cursor:pointer;position:relative;overflow:hidden;
+}
+.drop:hover{border-color:var(--amber);background:var(--surface-2)}
+.drop.busy{cursor:default;border-style:solid}
+.drop-ic{width:62px;height:62px;margin:0 auto 16px;background:var(--surface-3);border:1px solid var(--border-bright);
+  display:grid;place-items:center;clip-path:var(--chamfer)}
+.drop-ic svg{width:30px;height:30px;stroke:var(--amber)}
+.drop h3{font-family:var(--fd);font-size:17px;font-weight:600;margin-bottom:6px}
+.drop p{color:var(--text-dim);font-size:13px}
+.drop-formats{display:flex;gap:7px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+.fmt{font-family:var(--fm);font-size:10px;padding:4px 9px;border:1px solid var(--border);color:var(--text-faint);border-radius:2px}
+.uprog{display:none;margin-top:18px}
+.uprog.show{display:block}
+.uprog-bar{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;border:1px solid var(--border)}
+.uprog-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--amber));transition:width .25s}
+.uprog-txt{font-family:var(--fm);font-size:11px;color:var(--text-dim);margin-top:8px;display:flex;justify-content:space-between}
+
+/* viewer */
+.viewer-wrap{background:var(--surface);border:1px solid var(--border);position:relative;border-radius:3px;overflow:hidden}
+.viewer-wrap canvas{display:block;width:100%}
+.viewer-grid{position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(70,201,193,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(70,201,193,.06) 1px,transparent 1px);
+  background-size:28px 28px}
+.viewer-tag{position:absolute;font-family:var(--fm);font-size:9.5px;color:var(--text-faint);letter-spacing:.5px}
+.viewer-tag.tl{top:10px;left:12px} .viewer-tag.tr{top:10px;right:12px;color:var(--cyan)}
+.viewer-tag.bl{bottom:10px;left:12px} .viewer-tag.br{bottom:10px;right:12px}
+.viewer-hint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
+  font-family:var(--fm);font-size:9.5px;color:var(--text-faint);opacity:.7}
+
+/* spec list */
+.spec-list{display:flex;flex-direction:column}
+.spec-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)}
+.spec-row:last-child{border:none}
+.spec-row .k{font-size:12px;color:var(--text-dim)}
+.spec-row .v{font-family:var(--fm);font-size:12.5px;font-weight:500}
+.spec-row .v.hi{color:var(--amber)}
+
+/* dfm */
+.dfm{display:flex;gap:10px;padding:11px 12px;border:1px solid var(--border);border-radius:3px;margin-bottom:8px;background:var(--surface-2)}
+.dfm-ic{width:22px;height:22px;flex-shrink:0;display:grid;place-items:center;border-radius:3px}
+.dfm-ic svg{width:13px;height:13px}
+.dfm.warn .dfm-ic{background:rgba(255,179,0,.14);color:var(--amber)}
+.dfm.crit .dfm-ic{background:rgba(255,93,93,.14);color:var(--red)}
+.dfm.info .dfm-ic{background:rgba(70,201,193,.14);color:var(--cyan)}
+.dfm-txt b{font-size:12.5px;font-weight:600;display:block}
+.dfm-txt span{font-size:11.5px;color:var(--text-dim)}
+
+/* ---------- CONFIGURE ---------- */
+.cfg-grid{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+.field{margin-bottom:16px}
+.field label{font-family:var(--fm);font-size:10px;letter-spacing:1px;color:var(--text-faint);
+  display:flex;justify-content:space-between;margin-bottom:7px}
+.field label .hint{color:var(--text-faint);letter-spacing:0}
+.select-wrap{position:relative}
+.select-wrap::after{content:"▾";position:absolute;right:13px;top:50%;transform:translateY(-50%);
+  color:var(--text-faint);font-size:11px;pointer-events:none}
+select,.tin{
+  width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+  padding:11px 13px;font-size:13px;border-radius:3px;appearance:none;transition:.13s;
+}
+select:focus,.tin:focus{outline:none;border-color:var(--amber)}
+.opt-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.opt{border:1px solid var(--border);background:var(--surface-2);padding:12px;border-radius:3px;
+  cursor:pointer;transition:.13s;text-align:left}
+.opt:hover{border-color:var(--border-bright)}
+.opt.sel{border-color:var(--amber);background:rgba(255,179,0,.07)}
+.opt b{font-size:12.5px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.opt b .chk{width:14px;height:14px;border:1px solid var(--border-bright);border-radius:50%;display:grid;place-items:center}
+.opt.sel b .chk{background:var(--amber);border-color:var(--amber)}
+.opt.sel b .chk::after{content:"";width:5px;height:5px;background:#1a1306;border-radius:50%}
+.opt span{font-family:var(--fm);font-size:10px;color:var(--text-faint);display:block;margin-top:4px}
+.qty-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.qty-btn{border:1px solid var(--border);background:var(--surface-2);padding:10px 0;text-align:center;
+  font-family:var(--fm);font-size:13px;border-radius:3px;transition:.12s}
+.qty-btn:hover{border-color:var(--border-bright)}
+.qty-btn.sel{border-color:var(--amber);background:rgba(255,179,0,.1);color:var(--amber)}
+
+/* price panel */
+.price-panel{background:var(--surface);border:1px solid var(--border);border-radius:3px;
+  position:sticky;top:90px;overflow:hidden}
+.pp-top{padding:18px 20px;border-bottom:1px solid var(--border);background:var(--surface-2);position:relative}
+.pp-top::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--amber)}
+.pp-eyebrow{font-family:var(--fm);font-size:9.5px;letter-spacing:1.5px;color:var(--text-faint)}
+.pp-unit{font-family:var(--fd);font-weight:700;font-size:40px;letter-spacing:.5px;margin:5px 0 1px}
+.pp-unit small{font-size:16px;color:var(--text-dim);font-weight:500}
+.pp-total{font-family:var(--fm);font-size:12px;color:var(--text-dim)}
+.pp-total b{color:var(--cyan)}
+.pp-body{padding:18px 20px}
+.pp-row{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;color:var(--text-dim)}
+.pp-row .v{font-family:var(--fm);color:var(--text)}
+.pp-divider{height:1px;background:var(--border);margin:9px 0}
+.pp-row.big{font-size:13px;color:var(--text)}
+.pp-row.big .v{font-weight:600;font-size:14px}
+.pp-lead{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border);
+  padding:9px 12px;border-radius:3px;margin:14px 0;font-size:11.5px}
+.pp-lead svg{width:14px;height:14px;color:var(--cyan)}
+.pp-cta{width:100%;padding:13px;background:var(--amber);color:#1a1306;font-family:var(--fd);
+  font-weight:700;font-size:13px;letter-spacing:.4px;clip-path:var(--chamfer);transition:.13s}
+.pp-cta:hover{background:#ffc233}
+.pp-note{font-family:var(--fm);font-size:9.5px;color:var(--text-faint);text-align:center;margin-top:10px}
+
+/* ---------- BREAKDOWN ---------- */
+.bd-hero{display:grid;grid-template-columns:1fr 280px;gap:16px;margin-bottom:14px}
+.bd-summary{background:linear-gradient(135deg,var(--surface-2),var(--surface));border:1px solid var(--border);
+  padding:22px;border-radius:3px;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden}
+.bd-summary::after{content:"";position:absolute;right:-40px;bottom:-40px;width:160px;height:160px;
+  background:radial-gradient(circle,rgba(255,179,0,.1),transparent 70%)}
+.bd-big{font-family:var(--fd);font-weight:700;font-size:46px;letter-spacing:.5px}
+.bd-big small{font-size:18px;color:var(--text-dim)}
+.waterfall{display:flex;height:30px;border-radius:3px;overflow:hidden;margin:14px 0 6px}
+.waterfall i{height:100%;transition:.3s}
+.wf-legend{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 18px;margin-top:14px}
+.wf-leg{display:flex;align-items:center;gap:8px;font-size:11.5px}
+.wf-leg .sw{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.wf-leg .nm{color:var(--text-dim)}
+.wf-leg .vl{margin-left:auto;font-family:var(--fm);font-weight:500}
+
+.breakrow td:first-child{font-weight:500}
+.breakrow .save{color:var(--green);font-family:var(--fm);font-size:12px}
+
+/* ---------- PRICING ENGINE ---------- */
+.pe-tabs{display:flex;gap:4px;margin-bottom:18px;border-bottom:1px solid var(--border)}
+.pe-tab{padding:10px 16px;font-family:var(--fd);font-weight:600;font-size:13px;color:var(--text-dim);
+  border-bottom:2px solid transparent;transition:.13s}
+.pe-tab:hover{color:var(--text)}
+.pe-tab.active{color:var(--amber);border-color:var(--amber)}
+.pe-panel{display:none}
+.pe-panel.active{display:block;animation:fade .25s ease}
+.cell-in{background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+  padding:6px 9px;font-family:var(--fm);font-size:12px;width:90px;border-radius:2px}
+.cell-in:focus{outline:none;border-color:var(--amber)}
+.rule-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.rule{border:1px solid var(--border);background:var(--surface-2);padding:16px;border-radius:3px}
+.rule-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.rule-h b{font-family:var(--fd);font-size:13px}
+.rule-h .badge{font-family:var(--fm);font-size:9px;color:var(--amber);border:1px solid var(--amber-deep);padding:2px 6px;border-radius:2px}
+.slider-row{display:flex;align-items:center;gap:12px}
+input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:var(--border-bright);border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;background:var(--amber);
+  border-radius:50%;cursor:pointer;border:2px solid var(--surface)}
+.slider-val{font-family:var(--fd);font-weight:700;font-size:18px;width:64px;text-align:right}
+
+/* misc */
+.divider-lbl{display:flex;align-items:center;gap:12px;margin:22px 0 14px}
+.divider-lbl span{font-family:var(--fm);font-size:10px;letter-spacing:1.5px;color:var(--text-faint)}
+.divider-lbl::before,.divider-lbl::after{content:"";flex:1;height:1px;background:var(--border)}
+.flow-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
+.muted{color:var(--text-faint)}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--surface-3);border:1px solid var(--border-bright);
+  padding:13px 18px;border-radius:3px;display:flex;align-items:center;gap:10px;font-size:13px;
+  transform:translateY(80px);opacity:0;transition:.3s;z-index:50;clip-path:var(--chamfer)}
+.toast.show{transform:none;opacity:1}
+.toast svg{width:17px;height:17px;color:var(--green)}
+@media(max-width:1080px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .grid-2,.cfg-grid,.bd-hero{grid-template-columns:1fr}
+  .price-panel{position:static}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">
+        <div class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3" stroke="#1a1306" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="12" r="3.4" stroke="#1a1306" stroke-width="2.2"/></svg>
+        </div>
+        <div>
+          <div class="brand-name">FEEDRATE</div>
+          <div class="brand-sub">CNC QUOTING ENGINE</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-label">İŞ SAHƏSİ</div>
+      <button class="nav-item active" data-nav="dashboard">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+        İcmal <span class="nav-kbd">D</span>
+      </button>
+      <button class="nav-item" data-nav="quote">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+        Yeni Teklif <span class="nav-kbd">N</span>
+      </button>
+      <button class="nav-item" data-nav="quotes">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        Tekliflər <span class="nav-kbd">Q</span>
+      </button>
+      <div class="nav-label" style="margin-top:18px">MÜHƏRRİK</div>
+      <button class="nav-item" data-nav="pricing">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8"><path d="M3 6h18M3 12h18M3 18h18"/><circle cx="8" cy="6" r="2" fill="var(--surface)"/><circle cx="15" cy="12" r="2" fill="var(--surface)"/><circle cx="10" cy="18" r="2" fill="var(--surface)"/></svg>
+        Qiymət Mühərriki <span class="nav-kbd">P</span>
+      </button>
+    </nav>
+
+    <div class="sb-status">
+      <div class="sb-status-row"><span class="dot"></span> Sex tutumu — bu həftə</div>
+      <div class="sb-meter"><i></i></div>
+      <div class="sb-meter-cap"><span>286 / 420 saat</span><span>68%</span></div>
+    </div>
+
+    <div class="sb-user">
+      <div class="avatar">RM</div>
+      <div>
+        <div class="sb-user-name">Rəşad Məmmədov</div>
+        <div class="sb-user-role">PRECIZ CNC MMC · Admin</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <div class="topbar">
+      <div class="crumb">FEEDRATE / <b id="crumb">İcmal</b></div>
+      <div class="topbar-spacer"></div>
+      <div class="tsearch">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        Teklif, müştəri, hissə axtar…
+      </div>
+      <button class="icon-btn"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg><span class="bdg">3</span></button>
+      <button class="tbtn" data-nav="quote"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Yeni Teklif</button>
+    </div>
+
+    <div class="content">
+
+    <!-- ============================================================
+         PAGE 1 — DASHBOARD
+    ============================================================= -->
+    <section class="page active" id="page-dashboard">
+      <div class="phead">
+        <div class="eyebrow">SƏHİFƏ 01 — İDARƏ PANELİ</div>
+        <h1>Sex İcmalı</h1>
+        <p>Anında qiymət mühərrikinin canlı göstəriciləri. Bütün tekliflər avtomatik hesablanır — sən yalnız təsdiqləyirsən.</p>
+      </div>
+      <div class="ruler" id="ruler1"></div>
+
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label"><span style="color:var(--amber)">◆</span> AÇIQ TEKLİFLƏR</div>
+          <div class="kpi-val">24</div>
+          <div class="kpi-delta up">▲ 6 yeni · son 7 gün</div>
+          <svg class="kpi-spark" viewBox="0 0 200 34" preserveAspectRatio="none"><path d="M0 26L25 22L50 24L75 14L100 17L125 9L150 12L175 5L200 8" fill="none" stroke="var(--amber)" stroke-width="2"/></svg>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label"><span style="color:var(--cyan)">◆</span> BU AY GƏLİR</div>
+          <div class="kpi-val">$48.2<small>K</small></div>
+          <div class="kpi-delta up">▲ 18.4% keçən aya</div>
+          <svg class="kpi-spark" viewBox="0 0 200 34" preserveAspectRatio="none"><path d="M0 28L25 25L50 20L75 22L100 15L125 18L150 10L175 12L200 4" fill="none" stroke="var(--cyan)" stroke-width="2"/></svg>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label"><span style="color:var(--green)">◆</span> QƏBUL FAİZİ</div>
+          <div class="kpi-val">41<small>%</small></div>
+          <div class="kpi-delta up">▲ 5.2% — sənaye orta 28%</div>
+          <svg class="kpi-spark" viewBox="0 0 200 34" preserveAspectRatio="none"><path d="M0 24L25 20L50 22L75 16L100 18L125 11L150 14L175 9L200 7" fill="none" stroke="var(--green)" stroke-width="2"/></svg>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label"><span style="color:var(--blue)">◆</span> ORTA CAVAB VAXTI</div>
+          <div class="kpi-val">3.4<small>dəq</small></div>
+          <div class="kpi-delta up">▼ əvvəl 2.1 gün idi</div>
+          <svg class="kpi-spark" viewBox="0 0 200 34" preserveAspectRatio="none"><path d="M0 8L25 12L50 9L75 16L100 14L125 20L150 18L175 25L200 27" fill="none" stroke="var(--blue)" stroke-width="2"/></svg>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-h">
+            <h3>Son Tekliflər</h3>
+            <span class="tag">AVTO-HESABLANMIŞ</span>
+          </div>
+          <table>
+            <thead><tr><th>TEKLİF</th><th>MÜŞTƏRİ</th><th>HİSSƏ</th><th>DƏYƏR</th><th>STATUS</th></tr></thead>
+            <tbody>
+              <tr><td class="td-mono">#FR-2048</td><td>Azərİstehsal MMC</td><td>BRK-204 Bracket</td><td class="td-mono">$8,640</td><td><span class="pill review">Baxışda</span></td></tr>
+              <tr><td class="td-mono">#FR-2047</td><td>Caspian Aero</td><td>Şaft mufta ×50</td><td class="td-mono">$12,180</td><td><span class="pill sent">Göndərilib</span></td></tr>
+              <tr><td class="td-mono">#FR-2046</td><td>BakuTech Robotics</td><td>Gear plate ×12</td><td class="td-mono">$3,420</td><td><span class="pill won">Qazanıldı</span></td></tr>
+              <tr><td class="td-mono">#FR-2045</td><td>Xəzər Energy</td><td>Flanec adaptör ×8</td><td class="td-mono">$5,910</td><td><span class="pill won">Qazanıldı</span></td></tr>
+              <tr><td class="td-mono">#FR-2044</td><td>Granit Mühəndislik</td><td>Manifold blok</td><td class="td-mono">$2,260</td><td><span class="pill draft">Qaralama</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-h"><h3>Dəzgah Yüklənməsi</h3><span class="tag">CANLI</span></div>
+          <div class="util-row">
+            <div class="util-name">DMG Mori NHX<span>3 OXLU FREZER</span></div>
+            <div class="util-bar"><i style="width:84%;background:var(--red)"></i></div>
+            <div class="util-pct">84%</div>
+          </div>
+          <div class="util-row">
+            <div class="util-name">Haas VF-4SS<span>3 OXLU FREZER</span></div>
+            <div class="util-bar"><i style="width:61%;background:var(--amber)"></i></div>
+            <div class="util-pct">61%</div>
+          </div>
+          <div class="util-row">
+            <div class="util-name">Mazak Integrex<span>5 OXLU</span></div>
+            <div class="util-bar"><i style="width:72%;background:var(--amber)"></i></div>
+            <div class="util-pct">72%</div>
+          </div>
+          <div class="util-row">
+            <div class="util-name">Okuma LB3000<span>CNC TORNA</span></div>
+            <div class="util-bar"><i style="width:39%;background:var(--green)"></i></div>
+            <div class="util-pct">39%</div>
+          </div>
+          <div style="margin-top:14px;padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:3px;font-size:11.5px;color:var(--text-dim)">
+            <b style="color:var(--amber)">⚠ Tutum xəbərdarlığı</b><br>3 oxlu xətt 80%+ doludur — yeni təcili sifarişlərə +15% qiymət tövsiyə olunur.
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:14px">
+        <div class="card">
+          <div class="card-h"><h3>Aylıq Gəlir & Teklif Həcmi</h3><span class="tag">SON 8 AY</span></div>
+          <div style="display:flex;align-items:flex-end;gap:10px;height:170px;padding-top:10px">
+            <!-- bar chart -->
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;height:54%;background:var(--surface-3);border-top:2px solid var(--cyan)"></div><span class="mono" style="font-size:9px;color:var(--text-faint)">OKT</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;height:62%;background:var(--surface-3);border-top:2px solid var(--cyan)"></div><span class="mono" style="font-size:9px;color:var(--text-faint)">NOY</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;height:48%;background:var(--surface-3);border-top:2px solid var(--cyan)"></div><span class="mono" style="font-size:9px;color:var(--text-faint)">DEK</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;height:58%;background:var(--surface-3);border-top:2px solid var(--cyan)"></div><span class="mono" style="font-size:9px;color:var(--text-faint)">YAN</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;height:70%;background:var(--surface-3);border-top:2px solid var(--cyan)"></div><span class="mono" style="font-size:9px;color:var(--text-faint)">FEV</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;height:66%;background:var(--surface-3);border-top:2px solid var(--cyan)"></div><span class="mono" style="font-size:9px;color:var(--text-faint)">MAR</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;height:82%;background:var(--surface-3);border-top:2px solid var(--cyan)"></div><span class="mono" style="font-size:9px;color:var(--text-faint)">APR</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:100%;height:96%;background:linear-gradient(var(--amber),var(--amber-deep));border-top:2px solid var(--amber)"></div><span class="mono" style="font-size:9px;color:var(--amber)">MAY</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><h3>Fəaliyyət Lenti</h3><span class="tag">REAL VAXT</span></div>
+          <div class="feed-item">
+            <div class="feed-ic" style="color:var(--green)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <div><div class="feed-txt"><b>Caspian Aero</b> #FR-2047 teklifi açdı</div><div class="feed-time">12 dəqiqə əvvəl</div></div>
+          </div>
+          <div class="feed-item">
+            <div class="feed-ic" style="color:var(--amber)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg></div>
+            <div><div class="feed-txt">Yeni CAD yükləndi — <b>BRK-204.step</b></div><div class="feed-time">38 dəqiqə əvvəl</div></div>
+          </div>
+          <div class="feed-item">
+            <div class="feed-ic" style="color:var(--cyan)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/></svg></div>
+            <div><div class="feed-txt">Mühərrik <b>32 hissəni</b> 3.4 dəq-də qiymətləndirdi</div><div class="feed-time">1 saat əvvəl</div></div>
+          </div>
+          <div class="feed-item">
+            <div class="feed-ic" style="color:var(--green)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <div><div class="feed-txt"><b>BakuTech</b> #FR-2046 sifarişi təsdiqlədi</div><div class="feed-time">3 saat əvvəl</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         PAGE 2-4 — NEW QUOTE FLOW (Upload / Configure / Result)
+    ============================================================= -->
+    <section class="page" id="page-quote">
+      <div class="phead">
+        <div class="eyebrow">SƏHİFƏ 02–04 — TEKLİF AXINI</div>
+        <h1>Yeni Anında Teklif</h1>
+        <p>CAD faylını yüklə, mühərrik həndəsəni təhlil edib emal vaxtını qiymətləndirsin. 3 addım, dəqiqələr içində teklif.</p>
+      </div>
+
+      <div class="stepper" id="stepper">
+        <div class="step current" data-step="1">
+          <div class="step-num">1</div>
+          <div class="step-txt"><small>ADDIM 01</small><b>CAD Yüklə</b></div>
+        </div>
+        <div class="step" data-step="2">
+          <div class="step-num">2</div>
+          <div class="step-txt"><small>ADDIM 02</small><b>Konfiqurasiya</b></div>
+        </div>
+        <div class="step" data-step="3">
+          <div class="step-num">3</div>
+          <div class="step-txt"><small>ADDIM 03</small><b>Teklif Nəticəsi</b></div>
+        </div>
+      </div>
+
+      <!-- ---- SUBSTEP 1: UPLOAD ---- -->
+      <div class="substep active" id="sub-1">
+        <div class="grid-2">
+          <div>
+            <div class="drop" id="drop">
+              <div class="drop-ic">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M12 4l-5 5M12 4l5 5"/><path d="M3 16v3a2 2 0 002 2h14a2 2 0 002-2v-3"/></svg>
+              </div>
+              <h3 id="drop-title">CAD faylını bura at</h3>
+              <p id="drop-sub">3D modeli sürüklə və ya seçmək üçün klikləyin</p>
+              <div class="drop-formats">
+                <span class="fmt">.STEP</span><span class="fmt">.STP</span><span class="fmt">.IGES</span>
+                <span class="fmt">.STL</span><span class="fmt">.X_T</span><span class="fmt">.SLDPRT</span>
+              </div>
+              <div class="uprog" id="uprog">
+                <div class="uprog-bar"><i id="uprog-fill"></i></div>
+                <div class="uprog-txt"><span id="uprog-stage">Yüklənir…</span><span id="uprog-pct">0%</span></div>
+              </div>
+            </div>
+            <div class="card" style="margin-top:14px">
+              <div class="card-h"><h3>Avtomatik Təhlil Mərhələləri</h3></div>
+              <div class="spec-list">
+                <div class="spec-row"><span class="k">▸ Həndəsə oxunması (B-Rep / mesh)</span><span class="v" style="color:var(--green)">HAZIR</span></div>
+                <div class="spec-row"><span class="k">▸ Sərhəd qutusu & həcm hesablanması</span><span class="v" style="color:var(--green)">HAZIR</span></div>
+                <div class="spec-row"><span class="k">▸ Feature tanıma (cib, deşik, yiv)</span><span class="v" style="color:var(--green)">HAZIR</span></div>
+                <div class="spec-row"><span class="k">▸ DFM yoxlanışı (istehsal dizaynı)</span><span class="v" style="color:var(--green)">HAZIR</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="viewer-wrap">
+              <canvas id="viewer-upload" height="300"></canvas>
+              <div class="viewer-grid"></div>
+              <div class="viewer-tag tl">3D BAXIŞ · ISO</div>
+              <div class="viewer-tag tr" id="vu-status">FAYL GÖZLƏNİLİR</div>
+              <div class="viewer-tag bl mono">BRK-204.step</div>
+              <div class="viewer-tag br mono">124 × 86 × 28 mm</div>
+              <div class="viewer-hint">sürükləyərək döndərin</div>
+            </div>
+            <div class="card" style="margin-top:14px">
+              <div class="card-h"><h3>Tanınmış Hissə Məlumatı</h3><span class="tag">AVTO</span></div>
+              <div class="spec-list">
+                <div class="spec-row"><span class="k">Sərhəd qutusu</span><span class="v">124 × 86 × 28 mm</span></div>
+                <div class="spec-row"><span class="k">Stok həcmi (kəsilməmiş)</span><span class="v">298.6 cm³</span></div>
+                <div class="spec-row"><span class="k">Bitmiş hissə həcmi</span><span class="v">121.0 cm³</span></div>
+                <div class="spec-row"><span class="k">Çıxarılacaq material</span><span class="v hi">177.6 cm³ · 59%</span></div>
+                <div class="spec-row"><span class="k">Səth sahəsi</span><span class="v">412 cm²</span></div>
+                <div class="spec-row"><span class="k">Tanınmış feature-lər</span><span class="v">14 deşik · 3 cib · 2 yiv</span></div>
+                <div class="spec-row"><span class="k">Tövsiyə olunan proses</span><span class="v hi">3 oxlu frezer</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="flow-actions">
+          <button class="tbtn ghost" data-nav="dashboard">İmtina</button>
+          <button class="tbtn" id="to-step2">Konfiqurasiyaya keç →</button>
+        </div>
+      </div>
+
+      <!-- ---- SUBSTEP 2: CONFIGURE ---- -->
+      <div class="substep" id="sub-2">
+        <div class="cfg-grid">
+          <div>
+            <div class="card">
+              <div class="card-h"><h3>Material & Proses</h3><span class="tag">MÜHƏRRİK GİRİŞİ</span></div>
+              <div class="field">
+                <label>MATERIAL <span class="hint">qiymət / sıxlıq mühərrikdən</span></label>
+                <div class="select-wrap">
+                  <select id="f-material">
+                    <option value="alu6061">Alüminium 6061-T6 — $8.50/kg</option>
+                    <option value="alu7075">Alüminium 7075-T6 — $14.00/kg</option>
+                    <option value="ss304">Paslanmaz Polad 304 — $9.00/kg</option>
+                    <option value="steel1018">Polad 1018 — $4.20/kg</option>
+                    <option value="brass">Bürünc C360 — $12.00/kg</option>
+                    <option value="ti64">Titan Ti-6Al-4V — $55.00/kg</option>
+                    <option value="delrin">Delrin POM — $7.00/kg</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field">
+                <label>EMAL PROSESİ</label>
+                <div class="opt-grid" id="f-process">
+                  <button class="opt sel" data-v="mill3"><b>3 Oxlu Frezer <span class="chk"></span></b><span>$92/saat · sürətli</span></button>
+                  <button class="opt" data-v="mill5"><b>5 Oxlu Frezer <span class="chk"></span></b><span>$145/saat · mürəkkəb</span></button>
+                  <button class="opt" data-v="lathe"><b>CNC Torna <span class="chk"></span></b><span>$85/saat · fırlanma</span></button>
+                  <button class="opt" data-v="mill3" style="opacity:.4;pointer-events:none"><b>Tel EDM <span class="chk"></span></b><span>tezliklə</span></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:14px">
+              <div class="card-h"><h3>Miqdar & Partiya</h3><span class="tag">QİYMƏT PİLLƏLƏRİ</span></div>
+              <div class="field" style="margin-bottom:0">
+                <label>İSTEHSAL MİQDARI <span class="hint">quraşdırma xərci bölünür</span></label>
+                <div class="qty-grid" id="f-qty">
+                  <button class="qty-btn" data-v="1">1</button>
+                  <button class="qty-btn sel" data-v="10">10</button>
+                  <button class="qty-btn" data-v="25">25</button>
+                  <button class="qty-btn" data-v="50">50</button>
+                  <button class="qty-btn" data-v="100">100</button>
+                  <button class="qty-btn" data-v="250">250</button>
+                  <button class="qty-btn" data-v="500">500</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:14px">
+              <div class="card-h"><h3>Tolerans & Səth</h3><span class="tag">KEYFİYYƏT</span></div>
+              <div class="field">
+                <label>TOLERANS SİNFİ</label>
+                <div class="select-wrap">
+                  <select id="f-tol">
+                    <option value="std">Standart — ±0.125 mm (ISO 2768-m)</option>
+                    <option value="prec">Dəqiq — ±0.05 mm</option>
+                    <option value="tight">Sıx — ±0.025 mm</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field" style="margin-bottom:0">
+                <label>SƏTH EMALI</label>
+                <div class="select-wrap">
+                  <select id="f-finish">
+                    <option value="none">Emaldan çıxan kimi — Ra 1.6</option>
+                    <option value="bead">Qum püskürtmə — mat</option>
+                    <option value="ano">Anodlama Tip II — rəngli</option>
+                    <option value="powder">Toz boya</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:14px">
+              <div class="card-h"><h3>İcra Müddəti</h3><span class="tag">TUTUMA BAĞLI</span></div>
+              <div class="field" style="margin-bottom:0">
+                <div class="opt-grid" id="f-lead" style="grid-template-columns:repeat(3,1fr)">
+                  <button class="opt sel" data-v="std"><b>Standart <span class="chk"></span></b><span>10 iş günü · ×1.00</span></button>
+                  <button class="opt" data-v="exp"><b>Sürətli <span class="chk"></span></b><span>5 iş günü · ×1.22</span></button>
+                  <button class="opt" data-v="rush"><b>Təcili <span class="chk"></span></b><span>48 saat · ×1.55</span></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- LIVE PRICE PANEL -->
+          <div class="price-panel">
+            <div class="pp-top">
+              <div class="pp-eyebrow">VAHİD QİYMƏTİ — CANLI</div>
+              <div class="pp-unit" id="pp-unit">$0<small>.00</small></div>
+              <div class="pp-total">Cəmi sifariş: <b id="pp-total">$0.00</b></div>
+            </div>
+            <div class="pp-body">
+              <div class="pp-row"><span>Material</span><span class="v" id="pp-mat">—</span></div>
+              <div class="pp-row"><span>Emal vaxtı (vahid)</span><span class="v" id="pp-cycle">—</span></div>
+              <div class="pp-row"><span>Emal əməyi</span><span class="v" id="pp-mach">—</span></div>
+              <div class="pp-row"><span>Quraşdırma (bölünmüş)</span><span class="v" id="pp-setup">—</span></div>
+              <div class="pp-row"><span>Proqramlaşdırma</span><span class="v" id="pp-prog">—</span></div>
+              <div class="pp-row"><span>Səth emalı</span><span class="v" id="pp-fin">—</span></div>
+              <div class="pp-row"><span>Yoxlama</span><span class="v" id="pp-insp">—</span></div>
+              <div class="pp-divider"></div>
+              <div class="pp-row"><span>Maya dəyəri</span><span class="v" id="pp-cost">—</span></div>
+              <div class="pp-row"><span>Marja (32%)</span><span class="v" style="color:var(--green)" id="pp-margin">—</span></div>
+              <div class="pp-divider"></div>
+              <div class="pp-row big"><span>Vahid qiyməti</span><span class="v" id="pp-unit2">—</span></div>
+
+              <div class="pp-lead">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                <span id="pp-lead">Çatdırılma: <b>10 iş günü</b></span>
+              </div>
+              <button class="pp-cta" id="to-step3">Teklifi yarat & detallaşdır →</button>
+              <div class="pp-note">FEEDRATE™ qiymət mühərriki · v3.2 · real-time</div>
+            </div>
+          </div>
+        </div>
+        <div class="flow-actions">
+          <button class="tbtn ghost" id="back-step1">← Geri (Yüklə)</button>
+        </div>
+      </div>
+
+      <!-- ---- SUBSTEP 3: RESULT / BREAKDOWN ---- -->
+      <div class="substep" id="sub-3">
+        <div class="bd-hero">
+          <div class="bd-summary">
+            <div class="eyebrow">TEKLİF #FR-2049 · BRK-204 MOUNTING BRACKET</div>
+            <div class="bd-big" id="bd-total">$0<small>.00</small></div>
+            <div style="color:var(--text-dim);font-size:12.5px;margin-top:2px" id="bd-sub">— hissə · vahidi —</div>
+            <div class="waterfall" id="bd-waterfall"></div>
+            <div class="wf-legend" id="bd-legend"></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>Teklif Xülasəsi</h3></div>
+            <div class="spec-list">
+              <div class="spec-row"><span class="k">Material</span><span class="v" id="bd-material">—</span></div>
+              <div class="spec-row"><span class="k">Proses</span><span class="v" id="bd-process">—</span></div>
+              <div class="spec-row"><span class="k">Miqdar</span><span class="v" id="bd-qty">—</span></div>
+              <div class="spec-row"><span class="k">Vahid emal vaxtı</span><span class="v" id="bd-cycle">—</span></div>
+              <div class="spec-row"><span class="k">Tolerans</span><span class="v" id="bd-tol">—</span></div>
+              <div class="spec-row"><span class="k">Çatdırılma</span><span class="v hi" id="bd-lead">—</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-h"><h3>Miqdar Pilləli Qiymət</h3><span class="tag">PARTİYA QƏNAƏTİ</span></div>
+            <table>
+              <thead><tr><th>MİQDAR</th><th>VAHİD QİYMƏTİ</th><th>CƏMİ</th><th>VAHİD QƏNAƏTİ</th></tr></thead>
+              <tbody id="bd-breaks"></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>DFM — İstehsal Üçün Dizayn</h3><span class="tag">4 QEYD</span></div>
+            <div class="dfm warn">
+              <div class="dfm-ic"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 002 3h16a2 2 0 002-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg></div>
+              <div class="dfm-txt"><b>Dərin cib aşkar edildi</b><span>18 mm dərinlik / 6 mm en — alət uzunluq nisbəti yüksək, +12% emal vaxtı.</span></div>
+            </div>
+            <div class="dfm crit">
+              <div class="dfm-ic"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg></div>
+              <div class="dfm-txt"><b>Kəskin daxili künc R0</b><span>Frezer aləti künc verə bilmir — minimum R3 radius tövsiyə olunur.</span></div>
+            </div>
+            <div class="dfm warn">
+              <div class="dfm-ic"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 002 3h16a2 2 0 002-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg></div>
+              <div class="dfm-txt"><b>Nazik divar — 1.2 mm</b><span>Titrəmə riski; minimum 1.5 mm tövsiyə olunur, əks halda +keyfiyyət xərci.</span></div>
+            </div>
+            <div class="dfm info">
+              <div class="dfm-ic"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></div>
+              <div class="dfm-txt"><b>Sıx tolerans yalnız 2 səthdə</b><span>Ayrıca bitirici keçid planlaşdırılıb — yoxlama xərcinə daxil edilib.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-actions">
+          <button class="tbtn ghost" id="back-step2">← Konfiqurasiyaya qayıt</button>
+          <button class="tbtn ghost" id="dl-pdf"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 3v12M12 15l-4-4M12 15l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round"/></svg> PDF endir</button>
+          <button class="tbtn" id="send-quote"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke-linecap="round" stroke-linejoin="round"/></svg> Müştəriyə göndər</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         PAGE 5 — QUOTES MANAGEMENT
+    ============================================================= -->
+    <section class="page" id="page-quotes">
+      <div class="phead">
+        <div class="eyebrow">SƏHİFƏ 05 — TEKLİF İDARƏETMƏSİ</div>
+        <h1>Bütün Tekliflər</h1>
+        <p>Hər teklif yaranandan bağlananadək izlənir. Boru kəməri görünüşü ilə hansı işlərə fokuslanmaq lazım olduğunu gör.</p>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-label" style="color:var(--text-dim)">QARALAMA</div><div class="kpi-val" style="font-size:26px">7</div><div class="kpi-delta" style="color:var(--text-faint)">$14.2K potensial</div></div>
+        <div class="kpi"><div class="kpi-label" style="color:var(--blue)">GÖNDƏRİLİB</div><div class="kpi-val" style="font-size:26px">11</div><div class="kpi-delta" style="color:var(--blue)">$58.6K gözləyir</div></div>
+        <div class="kpi"><div class="kpi-label" style="color:var(--green)">QAZANILDI</div><div class="kpi-val" style="font-size:26px">19</div><div class="kpi-delta up">$94.3K bağlandı</div></div>
+        <div class="kpi"><div class="kpi-label" style="color:var(--red)">İTİRİLDİ</div><div class="kpi-val" style="font-size:26px">6</div><div class="kpi-delta down">$22.1K — səbəb təhlili</div></div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <div class="card-h">
+          <h3>Teklif Reyestri</h3>
+          <div style="display:flex;gap:8px">
+            <button class="tbtn ghost" style="padding:6px 12px;font-size:11px">Filtr ▾</button>
+            <button class="tbtn ghost" style="padding:6px 12px;font-size:11px">İxrac</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>TEKLİF №</th><th>MÜŞTƏRİ</th><th>HİSSƏ / PROSES</th><th>MİQDAR</th><th>VAHİD</th><th>CƏMİ DƏYƏR</th><th>STATUS</th><th>TARİX</th></tr></thead>
+          <tbody>
+            <tr><td class="td-mono">FR-2049</td><td>Azərİstehsal MMC</td><td>BRK-204 · 3 oxlu</td><td class="td-mono">100</td><td class="td-mono">$92.40</td><td class="td-mono">$9,240</td><td><span class="pill draft">Qaralama</span></td><td class="td-mono muted">22 May</td></tr>
+            <tr><td class="td-mono">FR-2048</td><td>Caspian Aero</td><td>Şaft mufta · torna</td><td class="td-mono">50</td><td class="td-mono">$243.60</td><td class="td-mono">$12,180</td><td><span class="pill sent">Göndərilib</span></td><td class="td-mono muted">21 May</td></tr>
+            <tr><td class="td-mono">FR-2047</td><td>BakuTech Robotics</td><td>Gear plate · 5 oxlu</td><td class="td-mono">12</td><td class="td-mono">$285.00</td><td class="td-mono">$3,420</td><td><span class="pill won">Qazanıldı</span></td><td class="td-mono muted">20 May</td></tr>
+            <tr><td class="td-mono">FR-2046</td><td>Xəzər Energy</td><td>Flanec adaptör · 3 oxlu</td><td class="td-mono">8</td><td class="td-mono">$738.75</td><td class="td-mono">$5,910</td><td><span class="pill won">Qazanıldı</span></td><td class="td-mono muted">19 May</td></tr>
+            <tr><td class="td-mono">FR-2045</td><td>Granit Mühəndislik</td><td>Manifold blok · 5 oxlu</td><td class="td-mono">4</td><td class="td-mono">$565.00</td><td class="td-mono">$2,260</td><td><span class="pill review">Baxışda</span></td><td class="td-mono muted">18 May</td></tr>
+            <tr><td class="td-mono">FR-2044</td><td>Sumqayıt Polimer</td><td>Qəlib lövhəsi · 3 oxlu</td><td class="td-mono">25</td><td class="td-mono">$148.00</td><td class="td-mono">$3,700</td><td><span class="pill sent">Göndərilib</span></td><td class="td-mono muted">17 May</td></tr>
+            <tr><td class="td-mono">FR-2043</td><td>Caspian Aero</td><td>Bracket V2 · 3 oxlu</td><td class="td-mono">200</td><td class="td-mono">$58.40</td><td class="td-mono">$11,680</td><td><span class="pill lost">İtirildi</span></td><td class="td-mono muted">15 May</td></tr>
+            <tr><td class="td-mono">FR-2042</td><td>NeoMed Cihazları</td><td>Titan implant · 5 oxlu</td><td class="td-mono">30</td><td class="td-mono">$412.00</td><td class="td-mono">$12,360</td><td><span class="pill won">Qazanıldı</span></td><td class="td-mono muted">14 May</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         PAGE 6 — PRICING ENGINE
+    ============================================================= -->
+    <section class="page" id="page-pricing">
+      <div class="phead">
+        <div class="eyebrow">SƏHİFƏ 06 — QİYMƏT MÜHƏRRİKİ</div>
+        <h1>Qiymət Mühərriki Konfiqurasiyası</h1>
+        <p>Bütün anında tekliflərin arxasındakı beyin. Burada dəzgah tariflərini, material xərclərini və qiymət qaydalarını idarə edirsən — bir dəfə qur, mühərrik daim doğru hesablasın.</p>
+      </div>
+
+      <div class="pe-tabs">
+        <button class="pe-tab active" data-pe="machines">Dəzgah Tarifləri</button>
+        <button class="pe-tab" data-pe="materials">Material Xərcləri</button>
+        <button class="pe-tab" data-pe="rules">Qiymət Qaydaları</button>
+      </div>
+
+      <!-- machines -->
+      <div class="pe-panel active" id="pe-machines">
+        <div class="card">
+          <div class="card-h"><h3>Dəzgah Saatlıq Tarifləri</h3><span class="tag">SAAT-BAZASLI</span></div>
+          <table>
+            <thead><tr><th>DƏZGAH</th><th>NÖV</th><th>SAATLIQ TARİF ($)</th><th>EFFEKTİV MRR (cm³/dəq)</th><th>QURAŞDIRMA (dəq)</th><th>STATUS</th></tr></thead>
+            <tbody>
+              <tr><td>3 Oxlu Frezer</td><td class="muted">Frezer</td><td><input class="cell-in" value="92.00"></td><td><input class="cell-in" value="6.50"></td><td><input class="cell-in" value="38"></td><td><span class="pill won">Aktiv</span></td></tr>
+              <tr><td>5 Oxlu Frezer</td><td class="muted">Frezer</td><td><input class="cell-in" value="145.00"></td><td><input class="cell-in" value="5.20"></td><td><input class="cell-in" value="52"></td><td><span class="pill won">Aktiv</span></td></tr>
+              <tr><td>CNC Torna</td><td class="muted">Torna</td><td><input class="cell-in" value="85.00"></td><td><input class="cell-in" value="7.40"></td><td><input class="cell-in" value="28"></td><td><span class="pill won">Aktiv</span></td></tr>
+              <tr><td>Tel EDM</td><td class="muted">EDM</td><td><input class="cell-in" value="118.00"></td><td><input class="cell-in" value="1.10"></td><td><input class="cell-in" value="45"></td><td><span class="pill draft">Deaktiv</span></td></tr>
+            </tbody>
+          </table>
+          <div style="margin-top:14px;font-family:var(--fm);font-size:11px;color:var(--text-faint)">
+            ▸ Tarif = dəzgah amortizasiyası + operator + enerji + alət. MRR emal vaxtını birbaşa təyin edir.
+          </div>
+        </div>
+      </div>
+
+      <!-- materials -->
+      <div class="pe-panel" id="pe-materials">
+        <div class="card">
+          <div class="card-h"><h3>Material Bazası</h3><span class="tag">SIXLIQ & MAŞINLANMA</span></div>
+          <table>
+            <thead><tr><th>MATERIAL</th><th>SIXLIQ (g/cm³)</th><th>QİYMƏT ($/kg)</th><th>MAŞINLANMA FAKTORU</th><th>STOK</th></tr></thead>
+            <tbody>
+              <tr><td>Alüminium 6061-T6</td><td><input class="cell-in" value="2.70"></td><td><input class="cell-in" value="8.50"></td><td><input class="cell-in" value="1.00"></td><td><span class="pill won">Var</span></td></tr>
+              <tr><td>Alüminium 7075-T6</td><td><input class="cell-in" value="2.81"></td><td><input class="cell-in" value="14.00"></td><td><input class="cell-in" value="0.90"></td><td><span class="pill won">Var</span></td></tr>
+              <tr><td>Paslanmaz Polad 304</td><td><input class="cell-in" value="8.00"></td><td><input class="cell-in" value="9.00"></td><td><input class="cell-in" value="0.45"></td><td><span class="pill won">Var</span></td></tr>
+              <tr><td>Polad 1018</td><td><input class="cell-in" value="7.87"></td><td><input class="cell-in" value="4.20"></td><td><input class="cell-in" value="0.70"></td><td><span class="pill won">Var</span></td></tr>
+              <tr><td>Bürünc C360</td><td><input class="cell-in" value="8.50"></td><td><input class="cell-in" value="12.00"></td><td><input class="cell-in" value="1.25"></td><td><span class="pill review">Az</span></td></tr>
+              <tr><td>Titan Ti-6Al-4V</td><td><input class="cell-in" value="4.43"></td><td><input class="cell-in" value="55.00"></td><td><input class="cell-in" value="0.25"></td><td><span class="pill review">Sifarişlə</span></td></tr>
+              <tr><td>Delrin POM</td><td><input class="cell-in" value="1.41"></td><td><input class="cell-in" value="7.00"></td><td><input class="cell-in" value="1.40"></td><td><span class="pill won">Var</span></td></tr>
+            </tbody>
+          </table>
+          <div style="margin-top:14px;font-family:var(--fm);font-size:11px;color:var(--text-faint)">
+            ▸ Maşınlanma faktoru: 1.0 = alüminium baza. Titan 0.25 → 4× daha yavaş emal → 4× əmək xərci.
+          </div>
+        </div>
+      </div>
+
+      <!-- rules -->
+      <div class="pe-panel" id="pe-rules">
+        <div class="rule-grid">
+          <div class="rule">
+            <div class="rule-h"><b>Hədəf Marja</b><span class="badge">QLOBAL</span></div>
+            <p class="muted" style="font-size:12px;margin-bottom:12px">Maya dəyərinin üstünə tətbiq edilən mənfəət faizi.</p>
+            <div class="slider-row">
+              <input type="range" min="10" max="60" value="32" id="r-margin">
+              <span class="slider-val" id="r-margin-v">32%</span>
+            </div>
+          </div>
+          <div class="rule">
+            <div class="rule-h"><b>Yük Faktoru (Overhead)</b><span class="badge">QLOBAL</span></div>
+            <p class="muted" style="font-size:12px;margin-bottom:12px">Material + əməyin üstünə dolayı xərc payı.</p>
+            <div class="slider-row">
+              <input type="range" min="0" max="25" value="8" id="r-oh">
+              <span class="slider-val" id="r-oh-v">8%</span>
+            </div>
+          </div>
+          <div class="rule">
+            <div class="rule-h"><b>Təcili Sifariş Əlavəsi</b><span class="badge">İCRA MÜDDƏTİ</span></div>
+            <p class="muted" style="font-size:12px;margin-bottom:12px">48 saatlıq çatdırılma üçün qiymət vurğusu.</p>
+            <div class="slider-row">
+              <input type="range" min="100" max="200" value="155" id="r-rush">
+              <span class="slider-val" id="r-rush-v">×1.55</span>
+            </div>
+          </div>
+          <div class="rule">
+            <div class="rule-h"><b>Proqramlaşdırma Haqqı</b><span class="badge">BİR DƏFƏLİK</span></div>
+            <p class="muted" style="font-size:12px;margin-bottom:12px">CAM proqramı + fiksator — miqdara bölünür.</p>
+            <div class="slider-row">
+              <input type="range" min="0" max="400" value="135" id="r-prog">
+              <span class="slider-val" id="r-prog-v">$135</span>
+            </div>
+          </div>
+          <div class="rule">
+            <div class="rule-h"><b>Minimum Sifariş Dəyəri</b><span class="badge">QORUMA</span></div>
+            <p class="muted" style="font-size:12px;margin-bottom:12px">Kiçik işlərin zərərlə getməməsi üçün döşəmə.</p>
+            <div class="slider-row">
+              <input type="range" min="0" max="500" value="150" id="r-min">
+              <span class="slider-val" id="r-min-v">$150</span>
+            </div>
+          </div>
+          <div class="rule">
+            <div class="rule-h"><b>Yoxlama — Sıx Tolerans</b><span class="badge">KEYFİYYƏT</span></div>
+            <p class="muted" style="font-size:12px;margin-bottom:12px">±0.025 mm hissələr üçün vahid başına CMM xərci.</p>
+            <div class="slider-row">
+              <input type="range" min="0" max="40" value="15" id="r-cmm">
+              <span class="slider-val" id="r-cmm-v">$15</span>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:14px;border-color:var(--amber-deep)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:34px;height:34px;background:rgba(255,179,0,.14);display:grid;place-items:center;border-radius:3px;flex-shrink:0">
+              <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="var(--amber)" stroke-width="2"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+            </div>
+            <div style="flex:1">
+              <b style="font-family:var(--fd)">Mühərrik dərhal yenilənir</b>
+              <div class="muted" style="font-size:12px">Bu parametrləri dəyişdikdə bütün gələcək tekliflər avtomatik yeni qaydalarla hesablanır.</div>
+            </div>
+            <button class="tbtn" id="save-rules">Mühərriki yadda saxla</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div>
+
+<div class="toast" id="toast">
+  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>
+  <span id="toast-msg">Yadda saxlanıldı</span>
+</div>
+
+<script>
+/* ============ NAVIGATION ============ */
+const crumbMap={dashboard:'İcmal',quote:'Yeni Teklif',quotes:'Tekliflər',pricing:'Qiymət Mühərriki'};
+function navTo(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.nav===id));
+  document.getElementById('crumb').textContent=crumbMap[id]||'';
+  window.scrollTo(0,0);
+  if(id==='quote'&&!viewerUploadInit) initUploadViewer();
+}
+document.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()=>navTo(b.dataset.nav)));
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
+  const k={d:'dashboard',n:'quote',q:'quotes',p:'pricing'}[e.key.toLowerCase()];
+  if(k)navTo(k);
+});
+
+/* ============ TOAST ============ */
+function toast(msg){
+  const t=document.getElementById('toast');
+  document.getElementById('toast-msg').textContent=msg;
+  t.classList.add('show'); clearTimeout(t._t);
+  t._t=setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+/* ============ STEPPER ============ */
+function gotoStep(n){
+  document.querySelectorAll('.substep').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sub-'+n).classList.add('active');
+  document.querySelectorAll('.step').forEach(s=>{
+    const sn=+s.dataset.step;
+    s.classList.toggle('current',sn===n);
+    s.classList.toggle('done',sn<n);
+  });
+  if(n===3) renderBreakdown();
+  window.scrollTo(0,document.querySelector('.content').offsetTop-20);
+}
+document.querySelectorAll('.step').forEach(s=>s.addEventListener('click',()=>gotoStep(+s.dataset.step)));
+document.getElementById('to-step2').addEventListener('click',()=>gotoStep(2));
+document.getElementById('back-step1').addEventListener('click',()=>gotoStep(1));
+document.getElementById('to-step3').addEventListener('click',()=>gotoStep(3));
+document.getElementById('back-step2').addEventListener('click',()=>gotoStep(2));
+document.getElementById('dl-pdf').addEventListener('click',()=>toast('PDF teklifi hazırlanır…'));
+document.getElementById('send-quote').addEventListener('click',()=>{toast('Teklif #FR-2049 müştəriyə göndərildi ✓');});
+
+/* ============ UPLOAD SIMULATION ============ */
+const drop=document.getElementById('drop');
+let uploadDone=false;
+drop.addEventListener('click',()=>{
+  if(uploadDone||drop.classList.contains('busy'))return;
+  drop.classList.add('busy');
+  document.getElementById('drop-title').textContent='BRK-204.step təhlil edilir';
+  document.getElementById('drop-sub').textContent='Həndəsə oxunur — mühərrik feature tanıyır';
+  document.getElementById('uprog').classList.add('show');
+  const stages=['Fayl yüklənir…','Həndəsə oxunur…','Feature tanıma…','DFM yoxlanışı…','Tamamlandı'];
+  let p=0,si=0;
+  const iv=setInterval(()=>{
+    p+=Math.random()*16+6; if(p>100)p=100;
+    document.getElementById('uprog-fill').style.width=p+'%';
+    document.getElementById('uprog-pct').textContent=Math.round(p)+'%';
+    si=Math.min(stages.length-1,Math.floor(p/22));
+    document.getElementById('uprog-stage').textContent=stages[si];
+    document.getElementById('vu-status').textContent=p<100?'TƏHLİL EDİLİR':'MODEL HAZIR';
+    if(p>=100){
+      clearInterval(iv); uploadDone=true;
+      document.getElementById('drop-title').textContent='✓ BRK-204.step təhlil edildi';
+      document.getElementById('drop-sub').textContent='Mühərrik 14 deşik, 3 cib, 2 yiv tanıdı — konfiqurasiyaya keç';
+      toast('Hissə təhlil edildi — 177.6 cm³ material çıxarılacaq');
+    }
+  },240);
+});
+
+/* ============ QUOTE ENGINE ============ */
+const MATERIALS={
+  alu6061:{label:'Alüminium 6061-T6',density:2.70,price:8.50,mach:1.00},
+  alu7075:{label:'Alüminium 7075-T6',density:2.81,price:14.00,mach:0.90},
+  ss304:{label:'Paslanmaz 304',density:8.00,price:9.00,mach:0.45},
+  steel1018:{label:'Polad 1018',density:7.87,price:4.20,mach:0.70},
+  brass:{label:'Bürünc C360',density:8.50,price:12.00,mach:1.25},
+  ti64:{label:'Titan Ti-6Al-4V',density:4.43,price:55.00,mach:0.25},
+  delrin:{label:'Delrin POM',density:1.41,price:7.00,mach:1.40},
+};
+const PROCESSES={
+  mill3:{label:'3 oxlu frezer',rate:92,mrr:6.5},
+  mill5:{label:'5 oxlu frezer',rate:145,mrr:5.2},
+  lathe:{label:'CNC torna',rate:85,mrr:7.4},
+};
+const FINISH={none:{label:'Emaldan çıxan',cost:0},bead:{label:'Qum püskürtmə',cost:4.5},
+  ano:{label:'Anodlama Tip II',cost:9.0},powder:{label:'Toz boya',cost:12.5}};
+const TOL={std:{label:'Standart ±0.125',timeF:1.00,insp:2.0},
+  prec:{label:'Dəqiq ±0.05',timeF:1.18,insp:6.5},tight:{label:'Sıx ±0.025',timeF:1.45,insp:15.0}};
+const LEAD={std:{label:'Standart · 10 iş günü',mult:1.00},
+  exp:{label:'Sürətli · 5 iş günü',mult:1.22},rush:{label:'Təcili · 48 saat',mult:1.55}};
+const PART={stockVol:298.6,finishedVol:121.0};
+const SETUP_MIN=38, PROG_FEE=135, OH=0.08, MARGIN=0.32;
+
+const cfg={material:'alu6061',process:'mill3',qty:10,tol:'std',finish:'none',lead:'std'};
+
+function qtyLearn(q){return q>=250?0.82:q>=100?0.86:q>=50?0.90:q>=25?0.93:q>=10?0.96:1.0;}
+
+function calcQuote(qtyOverride){
+  const m=MATERIALS[cfg.material],p=PROCESSES[cfg.process],
+        f=FINISH[cfg.finish],t=TOL[cfg.tol],l=LEAD[cfg.lead];
+  const qty=qtyOverride||cfg.qty;
+  const stockMass=PART.stockVol*m.density/1000;          // kg
+  const materialCost=stockMass*m.price;
+  const removed=PART.stockVol-PART.finishedVol;           // cm³
+  let machMin=removed/(p.mrr*m.mach);
+  machMin*=t.timeF;
+  machMin*=qtyLearn(qty);
+  const cycleMin=machMin+4.5;                             // + finishing pass
+  const machiningCost=cycleMin/60*p.rate;
+  const setupPer=(SETUP_MIN/60*p.rate)/qty;
+  const progPer=PROG_FEE/qty;
+  const finCost=f.cost, inspCost=t.insp;
+  const overhead=OH*(materialCost+machiningCost);
+  const subtotal=materialCost+machiningCost+setupPer+progPer+finCost+inspCost+overhead;
+  let unit=subtotal/(1-MARGIN);
+  const marginAmt=unit-subtotal;
+  unit*=l.mult;
+  return{qty,unit,total:unit*qty,materialCost,machiningCost,setupPer,progPer,
+    finCost,inspCost,overhead,subtotal,marginAmt,cycleMin,leadMult:l.mult};
+}
+const $=id=>document.getElementById(id);
+const usd=n=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+function recalc(){
+  const q=calcQuote();
+  const ip=q.unit.toFixed(2).split('.');
+  $('pp-unit').innerHTML='$'+(+ip[0]).toLocaleString()+'<small>.'+ip[1]+'</small>';
+  $('pp-total').textContent=usd(q.total);
+  $('pp-mat').textContent=usd(q.materialCost);
+  $('pp-cycle').textContent=q.cycleMin.toFixed(1)+' dəq';
+  $('pp-mach').textContent=usd(q.machiningCost);
+  $('pp-setup').textContent=usd(q.setupPer);
+  $('pp-prog').textContent=usd(q.progPer);
+  $('pp-fin').textContent=usd(q.finCost);
+  $('pp-insp').textContent=usd(q.inspCost);
+  $('pp-cost').textContent=usd(q.subtotal);
+  $('pp-margin').textContent='+'+usd(q.marginAmt);
+  $('pp-unit2').textContent=usd(q.unit);
+  $('pp-lead').innerHTML='Çatdırılma: <b>'+LEAD[cfg.lead].label.split('·')[1].trim()+'</b>';
+}
+
+/* config wiring */
+$('f-material').addEventListener('change',e=>{cfg.material=e.target.value;recalc();});
+$('f-tol').addEventListener('change',e=>{cfg.tol=e.target.value;recalc();});
+$('f-finish').addEventListener('change',e=>{cfg.finish=e.target.value;recalc();});
+function bindOpts(wrapId,key){
+  document.querySelectorAll('#'+wrapId+' .opt').forEach(o=>{
+    o.addEventListener('click',()=>{
+      document.querySelectorAll('#'+wrapId+' .opt').forEach(x=>x.classList.remove('sel'));
+      o.classList.add('sel'); cfg[key]=o.dataset.v; recalc();
+    });
+  });
+}
+bindOpts('f-process','process'); bindOpts('f-lead','lead');
+document.querySelectorAll('#f-qty .qty-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('#f-qty .qty-btn').forEach(x=>x.classList.remove('sel'));
+    b.classList.add('sel'); cfg.qty=+b.dataset.v; recalc();
+  });
+});
+recalc();
+
+/* ============ BREAKDOWN PAGE ============ */
+const WF=[
+  {k:'materialCost',nm:'Material',c:'#5c9cff'},
+  {k:'machiningCost',nm:'Emal əməyi',c:'#ffb300'},
+  {k:'setupPer',nm:'Quraşdırma',c:'#46c9c1'},
+  {k:'progPer',nm:'Proqramlaşdırma',c:'#9b7bd4'},
+  {k:'finCost',nm:'Səth emalı',c:'#57c98a'},
+  {k:'inspCost',nm:'Yoxlama',c:'#e07a5f'},
+  {k:'overhead',nm:'Yük faktoru',c:'#7a8088'},
+  {k:'marginAmt',nm:'Marja',c:'#c98a06'},
+];
+function renderBreakdown(){
+  const q=calcQuote();
+  const ip=q.total.toFixed(2).split('.');
+  $('bd-total').innerHTML='$'+(+ip[0]).toLocaleString()+'<small>.'+ip[1]+'</small>';
+  $('bd-sub').textContent=q.qty+' hissə · vahidi '+usd(q.unit);
+  $('bd-material').textContent=MATERIALS[cfg.material].label;
+  $('bd-process').textContent=PROCESSES[cfg.process].label;
+  $('bd-qty').textContent=q.qty+' ədəd';
+  $('bd-cycle').textContent=q.cycleMin.toFixed(1)+' dəq';
+  $('bd-tol').textContent=TOL[cfg.tol].label;
+  $('bd-lead').textContent=LEAD[cfg.lead].label;
+  // waterfall — pre-leadmult unit basis
+  const base=q.unit/q.leadMult;
+  const wf=$('bd-waterfall'); wf.innerHTML='';
+  const leg=$('bd-legend'); leg.innerHTML='';
+  WF.forEach(w=>{
+    const val=q[w.k];
+    const pct=val/base*100;
+    const bar=document.createElement('i');
+    bar.style.width=pct+'%'; bar.style.background=w.c;
+    bar.title=w.nm+' '+usd(val);
+    wf.appendChild(bar);
+    const li=document.createElement('div');
+    li.className='wf-leg';
+    li.innerHTML='<span class="sw" style="background:'+w.c+'"></span>'+
+      '<span class="nm">'+w.nm+'</span><span class="vl">'+usd(val)+'</span>';
+    leg.appendChild(li);
+  });
+  // qty breaks
+  const tb=$('bd-breaks'); tb.innerHTML='';
+  const qtys=[1,10,25,50,100,250];
+  const baseUnit=calcQuote(1).unit;
+  qtys.forEach(qq=>{
+    const r=calcQuote(qq);
+    const save=baseUnit-r.unit;
+    const sel=qq===cfg.qty?' style="background:rgba(255,179,0,.07)"':'';
+    tb.innerHTML+='<tr class="breakrow"'+sel+'><td class="td-mono">'+qq+
+      '</td><td class="td-mono">'+usd(r.unit)+
+      '</td><td class="td-mono">'+usd(r.total)+
+      '</td><td class="save">'+(save>0.01?'−'+usd(save):'—')+'</td></tr>';
+  });
+}
+
+/* ============ PRICING ENGINE TABS ============ */
+document.querySelectorAll('.pe-tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.pe-tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.pe-panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    $('pe-'+t.dataset.pe).classList.add('active');
+  });
+});
+function bindSlider(id,fmt){
+  const s=$(id),v=$(id+'-v');
+  s.addEventListener('input',()=>v.textContent=fmt(s.value));
+}
+bindSlider('r-margin',v=>v+'%');
+bindSlider('r-oh',v=>v+'%');
+bindSlider('r-rush',v=>'×'+(v/100).toFixed(2));
+bindSlider('r-prog',v=>'$'+v);
+bindSlider('r-min',v=>'$'+v);
+bindSlider('r-cmm',v=>'$'+v);
+$('save-rules').addEventListener('click',()=>toast('Qiymət mühərriki yeniləndi — bütün tekliflər təsirlənəcək'));
+
+/* ============ RULER DECOR ============ */
+(()=>{const r=$('ruler1');for(let i=0;i<70;i++)r.appendChild(document.createElement('i'));})();
+
+/* ============ 3D VIEWER (Three.js) ============ */
+let viewerUploadInit=false;
+function buildPart(){
+  const g=new THREE.Group();
+  const mat=new THREE.MeshStandardMaterial({color:0xbfc3c8,metalness:0.82,roughness:0.34});
+  const dark=new THREE.MeshStandardMaterial({color:0x33373c,metalness:0.6,roughness:0.6});
+  // base plate
+  const base=new THREE.Mesh(new THREE.BoxGeometry(3.4,0.42,2.3),mat);
+  base.position.y=-0.55; g.add(base);
+  // vertical wall
+  const wall=new THREE.Mesh(new THREE.BoxGeometry(3.4,1.7,0.42),mat);
+  wall.position.set(0,0.28,-0.94); g.add(wall);
+  // gusset (diagonal support)
+  const gus=new THREE.Mesh(new THREE.BoxGeometry(0.38,1.5,1.5),mat);
+  gus.position.set(0,0.05,-0.1); gus.rotation.x=Math.PI/4; g.add(gus);
+  // mounting bosses + holes on base
+  [[-1.25,0.78],[1.25,0.78],[-1.25,-0.78],[1.25,-0.78]].forEach(p=>{
+    const boss=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.32,0.5,24),mat);
+    boss.position.set(p[0],-0.45,p[1]); g.add(boss);
+    const hole=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,0.62,18),dark);
+    hole.position.set(p[0],-0.42,p[1]); g.add(hole);
+  });
+  // holes on wall
+  [[-1.0],[0],[1.0]].forEach(p=>{
+    const h=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.6,18),dark);
+    h.rotation.x=Math.PI/2; h.position.set(p[0],0.5,-0.94); g.add(h);
+  });
+  // pocket on base (recess)
+  const pocket=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.3,0.9),dark);
+  pocket.position.set(0,-0.42,0.45); g.add(pocket);
+  // edge overlay for technical look
+  g.children.slice().forEach(m=>{
+    if(m.geometry&&m.material===mat){
+      const e=new THREE.LineSegments(
+        new THREE.EdgesGeometry(m.geometry),
+        new THREE.LineBasicMaterial({color:0x46c9c1,transparent:true,opacity:0.28}));
+      e.position.copy(m.position); e.rotation.copy(m.rotation); g.add(e);
+    }
+  });
+  return g;
+}
+function initUploadViewer(){
+  const canvas=document.getElementById('viewer-upload');
+  if(!canvas||viewerUploadInit||typeof THREE==='undefined')return;
+  viewerUploadInit=true;
+  const W=canvas.clientWidth||520, H=300;
+  const scene=new THREE.Scene();
+  const cam=new THREE.PerspectiveCamera(38,W/H,0.1,100);
+  cam.position.set(4.6,3.4,5.2); cam.lookAt(0,0,0);
+  const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(W,H,false);
+  scene.add(new THREE.AmbientLight(0xffffff,0.42));
+  scene.add(new THREE.HemisphereLight(0x9ec6ff,0x1a1206,0.5));
+  const key=new THREE.DirectionalLight(0xffe6b0,1.15); key.position.set(5,7,4); scene.add(key);
+  const fill=new THREE.DirectionalLight(0x6fb6ff,0.55); fill.position.set(-6,2,-3); scene.add(fill);
+  const part=buildPart(); scene.add(part);
+  let dragX=0,dragY=0,vx=0.004,vy=0,down=false,px=0,py=0;
+  canvas.style.cursor='grab';
+  canvas.addEventListener('pointerdown',e=>{down=true;px=e.clientX;py=e.clientY;canvas.style.cursor='grabbing';});
+  window.addEventListener('pointerup',()=>{down=false;canvas.style.cursor='grab';});
+  window.addEventListener('pointermove',e=>{
+    if(!down)return;
+    vy=(e.clientX-px)*0.008; vx=(e.clientY-py)*0.006;
+    dragY+=vy; dragX+=vx;
+    px=e.clientX; py=e.clientY;
+  });
+  window.addEventListener('resize',()=>{
+    const w=canvas.clientWidth||520;
+    cam.aspect=w/H; cam.updateProjectionMatrix(); renderer.setSize(w,H,false);
+  });
+  (function loop(){
+    requestAnimationFrame(loop);
+    if(!down){dragY+=0.004;}
+    part.rotation.y=dragY; part.rotation.x=dragX*0.6;
+    renderer.render(scene,cam);
+  })();
+}
+window.addEventListener('load',()=>{ /* lazy init on quote nav */ });
+</script>
+</body>
+</html>
