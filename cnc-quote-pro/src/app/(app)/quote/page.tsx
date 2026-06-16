@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   calcQuote,
   MATERIALS,
@@ -73,8 +73,15 @@ export default function QuoteFlow() {
   const [fileName, setFileName] = useState("BRK-204.step");
   const [analyzed, setAnalyzed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [ordering, setOrdering] = useState(false);
   const [cadError, setCadError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // Supplier-direct: ?s=<token> → sifariş "direct" (0% komissiya) olur
+  const [supplierToken, setSupplierToken] = useState<string | null>(null);
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("s");
+    if (t) setSupplierToken(t);
+  }, []);
 
   const showToast = (m: string) => {
     setToast(m);
@@ -181,6 +188,44 @@ export default function QuoteFlow() {
       totalPrice: q.total,
     });
     showToast("Quote saved");
+  };
+
+  // Quote → real istehsal sifarişi (backend: /api/order/create)
+  const handleOrder = async () => {
+    setOrdering(true);
+    try {
+      const res = await fetch("/api/order/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quote: {
+            mode,
+            material: matLabel,
+            process: procLabel,
+            quality: qualLabel,
+            finish: finLabel,
+            dimensions: `${dims.length} × ${dims.width} × ${dims.height} mm`,
+            quantity: q.qty,
+            pricePerPart: q.unit,
+            totalPrice: q.total,
+            fileName,
+          },
+          amountCents: Math.round(q.total * 100),
+          source: supplierToken ? "direct" : "marketplace",
+          supplierToken: supplierToken ?? undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || "Sifariş yaradıla bilmədi");
+        return;
+      }
+      showToast(`Sifariş yaradıldı ✓ ${data.order.ref}`);
+    } catch {
+      showToast("Şəbəkə xətası — yenidən cəhd et");
+    } finally {
+      setOrdering(false);
+    }
   };
 
   return (
@@ -651,9 +696,9 @@ export default function QuoteFlow() {
               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M12 3v12M12 15l-4-4M12 15l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" strokeLinecap="round" /></svg>
               Download PDF
             </button>
-            <button className="tbtn" onClick={() => showToast("Quote #FR-2049 sent to customer ✓")}>
+            <button className="tbtn" onClick={handleOrder} disabled={ordering}>
               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              Send to customer
+              {ordering ? "Göndərilir…" : "Sifariş ver"}
             </button>
           </div>
         </>
