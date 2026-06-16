@@ -20,19 +20,22 @@ A = {
  "host_per_prod": 250,   # hər canlı məhsul üçün əlavə
  "sw_head": 130,
  "mkt_pct": 0.22,        # ümumi gəlirin %-i marketinqə
- "mkt_min": 6000,        # 4 GTM üçün güclü baza
+ "mkt_min": 10000,       # aylıq reklam büdcəsi (yeni domen, paid-ads əsaslı)
  "admin": 1500,
- "capital": 1800000,     # portfel seed (funding need ~$1.36M + bufer, front-loaded build)
+ "travel_early": 12000,   # ilk aylar səyahət $/ay (fərqli ölkələrdə supplier görüşləri)
+ "travel_base": 4000,     # sonrakı aylar səyahət $/ay
+ "travel_early_months": 6,
+ "capital": 2200000,     # portfel seed (funding need ~$1.78M + bufer, səyahət daxil)
 }
 
 # ---- Məhsul gəlir modelləri ----
 # P1 FEEDRATE: model.py-dan gəlir axını (launch ay6)
 # P2-P4: SaaS rampası — adds (aylıq yeni müştəri) artır, churn, ARPU
-# FEEDRATE launch ay 3 (2 ay build) → digər məhsullar da müvafiq olaraq tez çıxır
+# Ardıcıl sürətli cadence: komanda FEEDRATE-dən sonra hər məhsulu 2 ayda çıxarır
 PRODUCTS = {
- "QUOTEFLOW": dict(launch=9,  adds0=7,  adds_g=0.075, churn=0.04, arpu=140),
- "FORMCHECK": dict(launch=16, adds0=18, adds_g=0.075, churn=0.06, arpu=39),
- "CONFIGFLOW":dict(launch=24, adds0=12, adds_g=0.075, churn=0.05, arpu=89),
+ "QUOTEFLOW": dict(launch=5, adds0=7,  adds_g=0.075, churn=0.04, arpu=140),  # inkişaf 3-4
+ "FORMCHECK": dict(launch=7, adds0=18, adds_g=0.075, churn=0.06, arpu=39),   # inkişaf 5-6
+ "CONFIGFLOW":dict(launch=9, adds0=12, adds_g=0.075, churn=0.05, arpu=89),   # inkişaf 7-8
 }
 
 # ---- Tək (paylaşılan) komanda — 4 məhsulu axın ilə idarə edir ----
@@ -60,22 +63,22 @@ ROLES = [
  # === Launch sonrası miqyas + digər məhsullar ===
  ("3D / CAD kontent mütəxəssisi", 6, 1500, True, "FEEDRATE"),
  ("Financist / CFO", 6, 1500, False, "Şirkət"),
- # P2 QUOTEFLOW (launch ay 9)
- ("Product lead / FS dev (QUOTEFLOW)", 6, 2800, True, "QUOTEFLOW"),
- ("Frontend developer (QUOTEFLOW)", 8, 2200, True, "QUOTEFLOW"),
- ("Growth / marketinq (QUOTEFLOW)", 9, 1800, False, "QUOTEFLOW"),
- ("Sales / BizDev", 9, 2500, False, "Şirkət"),
- ("Müştəri dəstəyi", 12, 1300, False, "Şirkət"),
- # P3 FORMCHECK (launch ay 16)
- ("FS dev (FORMCHECK / CAD analiz)", 13, 2800, True, "FORMCHECK"),
- ("Growth / kontent (FORMCHECK)", 15, 1700, False, "FORMCHECK"),
- ("Müştəri dəstəyi #2", 18, 1300, False, "Şirkət"),
- # P4 CONFIGFLOW (launch ay 24)
- ("FS dev (CONFIGFLOW)", 21, 2800, True, "CONFIGFLOW"),
- ("Frontend developer (CONFIGFLOW)", 23, 2200, True, "CONFIGFLOW"),
- ("Growth / marketinq (CONFIGFLOW)", 24, 1800, False, "CONFIGFLOW"),
+ # P2 QUOTEFLOW (inkişaf 3-4, launch ay 5)
+ ("Product lead / FS dev (QUOTEFLOW)", 3, 2800, True, "QUOTEFLOW"),
+ ("Frontend developer (QUOTEFLOW)", 3, 2200, True, "QUOTEFLOW"),
+ ("Growth / marketinq (QUOTEFLOW)", 5, 1800, False, "QUOTEFLOW"),
+ ("Müştəri dəstəyi", 5, 1300, False, "Şirkət"),
+ # P3 FORMCHECK (inkişaf 5-6, launch ay 7)
+ ("FS dev (FORMCHECK / CAD analiz)", 5, 2800, True, "FORMCHECK"),
+ ("Growth / kontent (FORMCHECK)", 6, 1700, False, "FORMCHECK"),
+ ("Sales / BizDev", 7, 2500, False, "Şirkət"),
+ # P4 CONFIGFLOW (inkişaf 7-8, launch ay 9)
+ ("FS dev (CONFIGFLOW)", 7, 2800, True, "CONFIGFLOW"),
+ ("Frontend developer (CONFIGFLOW)", 8, 2200, True, "CONFIGFLOW"),
+ ("Growth / marketinq (CONFIGFLOW)", 9, 1800, False, "CONFIGFLOW"),
  # miqyas
- ("Sales / BizDev #2", 28, 2500, False, "Şirkət"),
+ ("Müştəri dəstəyi #2", 16, 1300, False, "Şirkət"),
+ ("Sales / BizDev #2", 24, 2500, False, "Şirkət"),
  ("DevOps / SRE #2", 34, 2500, True, "Nüvə"),
  ("Müştəri dəstəyi #3", 40, 1300, False, "Şirkət"),
  ("Data / analitika mühəndisi", 42, 2400, True, "Nüvə"),
@@ -120,19 +123,20 @@ def compute(months=MONTHS, capital=None):
         sal = gross(m)*(1+A["tax"])
         host = A["host_base"] + live_products(m)*A["host_per_prod"] + fr["vis"]/10000*60
         sw = headcount(m)*A["sw_head"]
-        mkt = max(A["mkt_min"], total_rev*A["mkt_pct"])
+        mkt = max(A["mkt_min"]*live_products(m), total_rev*A["mkt_pct"])  # hər canlı məhsula öz büdcəsi
         ops = fr["ops"]  # FEEDRATE sifariş ops (model.py-dan)
         sup_bonus = fr["sup_bonus"]  # FEEDRATE supplier aktivləşmə bonusu
         eq = equipment(m)
         admin = A["admin"] + (400 if m>=13 else 0) + (400 if m>=25 else 0)
         stripe = (fr_processed + saas_processed)*A["stripe"]
-        cost = sal+host+sw+mkt+ops+sup_bonus+eq+admin+stripe
+        travel = A["travel_early"] if m <= A["travel_early_months"] else A["travel_base"]
+        cost = sal+host+sw+mkt+ops+sup_bonus+eq+admin+stripe+travel
         net = total_rev - cost
         cum += net; trough = min(trough, cum)
         rows.append(dict(m=m, label=month_label(m), prod=dict(prod_rev),
             rev=total_rev, head=headcount(m), live=live_products(m),
             sal=sal, host=host, sw=sw, mkt=mkt, ops=ops, eq=eq, admin=admin,
-            stripe=stripe, sup_bonus=sup_bonus, cost=cost, net=net, cum=cum,
+            stripe=stripe, sup_bonus=sup_bonus, travel=travel, cost=cost, net=net, cum=cum,
             fr_vis=fr["vis"], fr_orders=fr["orders"]))
     return rows, dict(capital=cap, trough=trough)
 

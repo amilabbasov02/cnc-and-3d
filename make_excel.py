@@ -239,13 +239,14 @@ def AR(idx): return f"{FZ}!$B${2+idx}"
 wm=wb.create_sheet("36 Aylıq Maliyyə"); wm.sheet_view.showGridLines=False
 cols=["Ay","Tarix","Ziyarətçi","Sifariş","İstehsal GMV $","İstehsal gəliri $","Ödənişli ist.",
  "Abunə gəliri $","Dizayn GMV $","Dizayn kom. $","ÜMUMİ GƏLİR $","Komanda","Maaş+vergi $",
- "Hosting $","Software $","Marketinq $","Sifariş ops $","Avadanlıq $","İnzibati $","Stripe $",
+ "Hosting $","Software $","Marketinq $","Sifariş ops $","Avadanlıq $","İnzibati+səyahət+bonus $","Stripe $",
  "ÜMUMİ XƏRC $","NET $","Yığılmış kassa $"]
 for i,w in enumerate([6,9,10,8,12,12,9,10,11,11,12,9,11,9,9,10,10,10,9,9,12,11,14],1):
     wm.column_dimensions[get_column_letter(i)].width=w
 title_row(wm,1,"36 AYLIQ GƏLİR-XƏRC (canlı düstur — Fərziyyələr dəyişdikcə yenilənir)",23)
 header(wm,2,cols); wm.freeze_panes="C3"
 
+_frrows,_ = M.compute(months=48)  # səyahət + supplier bonus dəyərləri üçün
 for m in range(1,49):
     row=2+m; r=row
     wm.cell(row=r,column=1,value=m).alignment=center
@@ -283,9 +284,10 @@ for m in range(1,49):
     wm.cell(row=r,column=17,value=f"=D{r}*{AR(6)}")
     # R equip
     wm.cell(row=r,column=18,value=M.equipment(m))
-    # S admin
+    # S admin + səyahət + supplier bonus
     extra=(300 if m>=13 else 0)+(400 if m>=25 else 0)
-    wm.cell(row=r,column=19,value=f"={AR(21)}+{extra}")
+    tb=round(_frrows[m-1]['travel']+_frrows[m-1]['sup_bonus'])
+    wm.cell(row=r,column=19,value=f"={AR(21)}+{extra}+{tb}")
     # T stripe
     wm.cell(row=r,column=20,value=f"=(E{r}+H{r}+I{r})*{AR(14)}")
     # U cost

@@ -26,10 +26,13 @@ A = {
  "host_10k": 60,      # hosting / 10K ziyarətçi $
  "sw_head": 120,      # software/alət hər nəfər $/ay (premium alətlər)
  "mkt_pct": 0.25,     # marketinq % gəlir (aqressiv böyümə)
- "mkt_min": 4000,     # marketinq min $/ay (güclü launch kampaniyası)
+ "mkt_min": 10000,    # marketinq min $/ay (aylıq reklam büdcəsi — yeni domen, paid-ads əsaslı)
  "admin": 1200,       # inzibati/ofis/hüquq baza $/ay
- "capital": 1500000,  # seed — funding need ~$1.23M + bufer (sənin $1.5M hədəfin)
- "launch_month": 3,   # 2 ay intensiv build (ay 1-2), launch ay 3 — gəlir buradan
+ "travel_early": 10000,    # ilk aylarda səyahət $/ay (supplier görüşləri, fərqli ölkələr)
+ "travel_base": 3000,      # sonrakı aylar səyahət $/ay (davamlı supplier/konfrans)
+ "travel_early_months": 6, # neçə ay yüksək səyahət
+ "capital": 1600000,  # seed — funding need ~$1.30M + bufer (səyahət daxil)
+ "launch_month": 1,   # işlək MVP ilk ayda hazır → gəlir 1-ci aydan başlayır
 }
 
 # ---- KOMANDA (rol, başlama ayı, aylıq brüt $, məsuliyyət, tip, ağır_kit) ----
@@ -120,7 +123,8 @@ def compute(assum=None, months=36):
         sup_base = mon_orders / a["orders_per_supplier"] if mon_orders > 0 else 0.0
         new_sup = max(0.0, sup_base - sup_prev); sup_prev += new_sup
         sup_bonus = new_sup * a["sup_bonus"]
-        cost = sal + host + sw + mkt + ops + eq + admin + stripe + sup_bonus
+        travel = a["travel_early"] if m <= a["travel_early_months"] else a["travel_base"]
+        cost = sal + host + sw + mkt + ops + eq + admin + stripe + sup_bonus + travel
         net = rev - cost
         cum += net
         trough = min(trough, cum)
@@ -128,7 +132,7 @@ def compute(assum=None, months=36):
             mgmv_mon=mgmv_mon, mgmv_free=mgmv_free, mon_orders=mon_orders,
             mrev=mrev, paid=paid, sub=sub, dgmv=dgmv, dcom=dcom, rev=rev, head=headcount(m),
             sal=sal, host=host, sw=sw, mkt=mkt, ops=ops, eq=eq, admin=admin, stripe=stripe,
-            sup_bonus=sup_bonus, suppliers=sup_prev, cost=cost, net=net, cum=cum))
+            sup_bonus=sup_bonus, travel=travel, suppliers=sup_prev, cost=cost, net=net, cum=cum))
     # funding need = deepest trough below 0 (kapitalsız), buffer 15%
     funding_need = max(0, -(trough - a["capital"]))  # trough without capital injection
     return rows, dict(a=a, funding_need=funding_need, trough=trough)

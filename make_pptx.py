@@ -214,10 +214,10 @@ bullets(s,[
 ])
 
 # 14 Yol xəritəsi
-s=slide(); accent_bar(s); kicker(s,"YOL XƏRİTƏSİ"); title(s,"İlk 2 ay intensiv build — sonra güclü launch")
+s=slide(); accent_bar(s); kicker(s,"YOL XƏRİTƏSİ"); title(s,"İlk aydan işlək MVP və gəlir")
 bullets(s,[
- ("Ay 1–2: İNTENSİV BUILD (gəlir yoxdur) — 18 nəfərlik komanda ilə Auth, DB, qiymət mühərriki, CAD, ödəniş, supplier-lər",AMBER,True),
- ("Ay 3: LAUNCH — güclü marketinq, ilk sifarişlər, supplier istehsalı, gəlir başlayır",GREEN,True),
+ ("Ay 1: İşlək MVP launch — ilk sifarişlər, gəlir başlayır ($10K/ay reklam, 18 nəfərlik komanda)",AMBER,True),
+ ("Ay 1–3: Tam funksiyalar — escrow, supplier marşrutlaşdırma, cilalama (paralel, gəlir artır)",GREEN,True),
  ("Ay 3–10: Brauzer CAD v1, marketplace, tam sifariş→çatdırılma dövrü",),
  ("Ay 14–24: Orta bazarda böyümə, supplier şəbəkəsinin genişlənməsi",),
  ("Ay 24–36: Business/API ilə yuxarı bazara çıxış, STEP export, beynəlxalq genişlənmə, mənfəət",),
@@ -253,7 +253,7 @@ stat_card(s,4.85,2.3,3.7,1.7,"~30 ay","Runway (breakeven-ə qədər)")
 stat_card(s,8.8,2.3,3.6,1.7,mm(m48['rev']*12),"48 ay ARR hədəfi",GREEN)
 bullets(s,[
  ("İstifadə: komanda ~60% · məhsul/infra ~12% · marketinq ~20% · əməliyyat/inzibati ~8%",),
- ("İlk 2 ay intensiv build (gəlirsiz) tam maliyyələşdirilir → ay 3-də güclü launch",),
+ ("İşlək MVP ilk aydan gəlir gətirir — komanda paralel tam məhsulu cilalayır",),
  (f"Plan: orta bazarı tut → {mm(m48['rev']*12)} ARR-ə çat → yuxarı bazara genişlən, İl 4 NET {mm(yr[4][2])}",GREEN,True),
 ],top=4.3,size=16)
 

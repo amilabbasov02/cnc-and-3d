@@ -6,7 +6,7 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
-import portfolio as P, model as FR
+import fabriq as P, model as FR
 
 INK=RGBColor(0x0D,0x0E,0x10); SURF=RGBColor(0x17,0x1A,0x1E); AMBER=RGBColor(0xFF,0xB3,0x00)
 CYAN=RGBColor(0x46,0xC9,0xC1); TEXT=RGBColor(0xEC,0xEA,0xE5); DIM=RGBColor(0x9A,0x9E,0xA4)
@@ -60,10 +60,10 @@ def rect(s,l,t,w,h,color,line=None):
 # 1 Title
 s=slide(); bar(s)
 tf=box(s,0.9,2.2,11.6,3)
-para(tf,"KAYZEN",58,WHITE,bold=True,first=True,space=4)
+para(tf,"VERTEXA",58,WHITE,bold=True,first=True,space=4)
 para(tf,"İstehsal-texnologiya şirkəti — bir nüvə, ardıcıl çıxan məhsul portfeli",22,AMBER,space=16)
 para(tf,"Brauzer CAD + qiymət mühərriki + ödəniş nüvəsi üzərində 4 məhsul · tək komanda · tək şirkət",15,DIM,space=14)
-para(tf,f"İnvestor təqdimatı · Kayzen · support@kayzen.az · 2026",13,DIM)
+para(tf,f"İnvestor təqdimatı · VERTEXA · support@kayzen.az · 2026",13,DIM)
 
 # 2 Vizyon
 s=slide(); bar(s); kicker(s,"VİZYON"); title(s,"Tək məhsul deyil — istehsal-texnologiya mühərriki")
@@ -92,7 +92,7 @@ bullets(s,[
  ("2) Hər məhsul bu nüvənin üstündə fərqli bazara «paketlənmiş» go-to-market-dir",),
  ("3) Ardıcıl çıxar: bir məhsul launch olub stabilləşəndə komanda növbətiyə axır",),
  ("4) Hər məhsul növbətindən əvvəl validasiya olunur — risk pillə-pillə azalır",),
- ("Nəticə: 4 məhsul, ~28 nəfər, tək seed — 4 ayrı şirkətin kəsri qədər kapitalla",GREEN,True),
+ ("FAZA 1: 2 məhsul, 12 nəfər, ~$1M → breakeven. FAZA 2: digər 2 məhsul ÖZ GƏLİRİ ilə (yeni pul yox)",GREEN,True),
 ])
 
 # 5 Paylaşılan nüvə
@@ -126,12 +126,12 @@ product_slide("FORMCHECK","DFM analiz SaaS — istehsal-uyğunluq yoxlaması",[
  ("CAD yüklə → divar qalınlığı, tolerans, undercut, qiyməti artıran amillər + AI tövsiyə",),
  ("Boşluq: SMB üçün yüngül, self-serve DFM aləti demək olar yoxdur (aPriori enterprise/bahalı)",),
  ("Gəlir: freemium → $39/ay · brauzer mesh analizi (nüvə təkrar)",GREEN,True),
-],None,7)
+],None,24)
 product_slide("CONFIGFLOW","E-commerce 3D konfiqurator / CPQ",[
  ("Custom məhsul satıcıları (mebel, lövhə, bracket, korpus) öz mağazasına 3D konfiqurator + anında qiymət qoyur",),
  ("Shopify/Woo app store = hazır paylama kanalı",),
  ("Gəlir: $89/ay abunə + tranzaksiya · Three.js + qiymət nüvəsi təkrar",GREEN,True),
-],None,9)
+],None,30)
 
 # 10 TIMELINE (Gantt hero)
 s=slide(); bar(s); kicker(s,"AXAN KOMANDA"); title(s,"Ardıcıl launch — komanda boş qalmır, işdən çıxarma yox")
@@ -141,7 +141,7 @@ mw=(chart_r-chart_l)/48.0; rh=0.72
 for mm_ in range(0,49,6):
     x=chart_l+mm_*mw
     para(box(s,x-0.25,top0-0.42,0.6,0.3),str(mm_ if mm_>0 else 1),11,DIM,first=True,align=PP_ALIGN.CENTER)
-prods=[("FEEDRATE",1,FR.A["launch_month"]),("QUOTEFLOW",3,5),("FORMCHECK",5,7),("CONFIGFLOW",7,9)]
+prods=[("FEEDRATE",1,FR.A["launch_month"]),("QUOTEFLOW",3,5),("FORMCHECK",22,24),("CONFIGFLOW",28,30)]
 for i,(name,bs,lc) in enumerate(prods):
     y=top0+i*rh
     para(box(s,0.55,y+0.02,2.0,0.5),name,13,PCLR[name],bold=True,first=True)
@@ -155,7 +155,7 @@ for i,(name,bs,lc) in enumerate(prods):
     rl=rect(s,lx,y,lw,0.42,PCLR[name]); rl.text_frame.vertical_anchor=MSO_ANCHOR.MIDDLE
     para(rl.text_frame,f"canlı · launch Ay{lc}",10,INK,bold=True,first=True,align=PP_ALIGN.CENTER)
 tf=box(s,0.55,top0+4*rh+0.15,12.2,1.4)
-para(tf,"Ay 1 FEEDRATE MVP launch → komanda QUOTEFLOW-a axır (Ay 5) · Ay 7 → FORMCHECK · Ay 9 → CONFIGFLOW",15,TEXT,first=True,space=5)
+para(tf,"FAZA 1: Ay 1 FEEDRATE + Ay 5 QUOTEFLOW (2 məhsul, ~$1M seed). FAZA 2 (ÖZ GƏLİRİ ilə): Ay 24 FORMCHECK · Ay 30 CONFIGFLOW",15,TEXT,first=True,space=5)
 para(tf,"Hər keçiddə nüvə komanda saxlanılır, yalnız GTM/məhsul qatı dəyişir — boş qalma və ya işdən çıxarma yoxdur.",14,GREEN,italic=True)
 
 # 11 Kapital səmərəliliyi
@@ -218,25 +218,25 @@ card(s,4.85,2.3,3.7,1.7,f"~{abs(int(need/1000))}K","Real funding need (dib)")
 card(s,8.8,2.3,3.6,1.7,mm(m48['rev']*12),"48 ay ARR hədəfi",GREEN)
 bullets(s,[
  ("İstifadə: komanda ~60% · məhsul/infra ~12% · marketinq (4 GTM) ~20% · inzibati ~8%",),
- ("FEEDRATE ilk aydan işlək MVP + gəlir — sonra hər məhsul ardıcıl maliyyələşir",),
+ ("2 məhsul özünü sübut edir (breakeven ~ay 20) → şirkət öz gəliri ilə məhsul 3-4-ü maliyyələşdirir",),
  (f"Plan: 4 məhsul, {mm(m48['rev']*12)} birləşmiş ARR, İl 4 mənfəətli, ~28 nəfərlə",GREEN,True),
 ],top=4.3,size=16)
 
 # 17 Komanda
 s=slide(); bar(s); kicker(s,"KOMANDA"); title(s,"Senior nüvə, məhsuldan-məhsula axır")
 bullets(s,[
- ("Nüvə (Ay 1): CEO + CTO/Baş arxitekt + Senior CAD + Senior Frontend — paylaşılan platforma",),
- ("Hər məhsul üçün 1 product/FS lead + 1 dev + 1 growth əlavə olunur (nüvəyə söykənir)",),
- ("Paylaşılan: CFO, marketinq lead, DevOps, QA, dəstək, sales — bir dəfə, hamı üçün",),
- (f"48 ayın sonunda {at(48)['head']} nəfər · remote-first · Azərbaycan bazlı",DIM,False),
+ ("FAZA 1 (12 nəfər): CEO+marketinq, CTO/təsisçi (+frontend), 2 CAD, 2 backend, frontend, UX, QA, ops, HR, reklamveren",),
+ ("Mövcud komanda məhsul 3-4-ü də qurur — nüvə ~70% təkrar, yeni developer lazım deyil",),
+ ("FAZA 2-də əlavə: yalnız 2 müştəri dəstəyi (öz gəliri ilə)",GREEN,True),
+ (f"Maksimum {at(48)['head']} nəfər (12 + 2 dəstək) · remote-first · Azərbaycan bazlı",DIM,False),
 ])
 
 # 18 Qapanış
 s=slide(); bar(s)
 tf=box(s,0.9,2.7,11.6,2.6)
-para(tf,"Bir komanda. Bir nüvə. Dörd bazar.",40,WHITE,bold=True,first=True,space=14)
+para(tf,"Bir komanda. Bir nüvə. Mərhələli böyümə.",40,WHITE,bold=True,first=True,space=14)
 para(tf,"KAYZEN — istehsal-texnologiyasını bir-bir fəth edən şirkət.",20,AMBER,space=22)
-para(tf,"Kayzen · support@kayzen.az",15,DIM)
+para(tf,"VERTEXA · support@kayzen.az",15,DIM)
 
-prs.save("KAYZEN-Portfel-Pitch-v2.pptx")
+prs.save("VERTEXA-Pitch.pptx")
 print("OK PPTX slaydlar:",len(prs.slides._sldIdLst),"| raise",raise_amt,"need",round(need),"48ARR",round(m48['rev']*12))

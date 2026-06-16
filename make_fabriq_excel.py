@@ -4,7 +4,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.formatting.rule import CellIsRule
-import portfolio as P, model as FR
+import fabriq as P, model as FR
 
 INK="0D0E10"; AMBER="FFB300"; DARK="15171A"; LIGHT="EEF1F4"
 GREEN="C9F2D8"; RED="F8D4D4"; BLUE="D6E6FF"; CYAN="D6F5F2"
@@ -30,8 +30,8 @@ wb=openpyxl.Workbook()
 # ============ XÜLASƏ ============
 ws=wb.active; ws.title="Xülasə (Investor)"; ws.sheet_view.showGridLines=False
 for col,w in zip("ABCDEF",[40,15,15,15,15,4]): ws.column_dimensions[col].width=w
-title_row(ws,1,"KAYZEN — PORTFEL İNVESTOR XÜLASƏSİ",6)
-ws.cell(row=2,column=1,value="Tək şirkət · paylaşılan texnoloji nüvə · ardıcıl çıxan 4 məhsul · axan komanda (boş qalma/işdən çıxarma yox)").font=Font(italic=True,size=10)
+title_row(ws,1,"VERTEXA — İNVESTOR XÜLASƏSİ",6)
+ws.cell(row=2,column=1,value="FAZA 1: 2 məhsul (FEEDRATE+QUOTEFLOW), 12 nəfər, ~$1M seed → breakeven. FAZA 2: digər 2 məhsul ÖZ GƏLİRİ ilə.").font=Font(italic=True,size=10)
 ws.merge_cells("A2:F2")
 title_row(ws,4,"İNVESTİSİYA TƏLƏBİ",6,bg=CYAN)
 ask=[("Tələb olunan seed (bufer ilə)", round(-trough0*1.25,-4), "Kapitalsız ən dərin kassa × 1.25"),
@@ -67,7 +67,7 @@ snap("Yığılmış kassa $",lambda x:x['cum'])
 snap("Canlı məhsul sayı",lambda x:x['live'],'0')
 snap("Komanda (nəfər)",lambda x:x['head'],'0')
 r+=1
-ws.cell(row=r,column=1,value=f"Kapital səmərəliliyi: 48 ayda {at(48)['head']} nəfərlə 4 məhsul — 4 ayrı şirkət ~72 nəfər istəyərdi. Nüvə ~70% təkrar işlədilir.").font=Font(italic=True,bold=True,color="2E7D32")
+ws.cell(row=r,column=1,value=f"FAZA 1: ~$1M ilə 2 məhsul + breakeven (~ay 20). FAZA 2: məhsul 3-4 ÖZ GƏLİRİ ilə (yeni pul yox). 48 ayda {at(48)['head']} nəfər.").font=Font(italic=True,bold=True,color="2E7D32")
 ws.merge_cells(start_row=r,start_column=1,end_row=r,end_column=6); r+=1
 ws.cell(row=r,column=1,value="Valyuta USD (AZN üçün ×1.70).").font=Font(italic=True,size=9)
 ws.merge_cells(start_row=r,start_column=1,end_row=r,end_column=6)
@@ -81,7 +81,7 @@ for c in range(2,50): wt.column_dimensions[get_column_letter(c)].width=2.6
 wt.cell(row=2,column=1,value="Məhsul \\ Ay").font=Font(bold=True,size=9)
 for m in range(1,49):
     cc=wt.cell(row=2,column=1+m,value=m); cc.font=Font(size=8); cc.alignment=center
-prods=[("FEEDRATE",1,FR.A["launch_month"]),("QUOTEFLOW",3,5),("FORMCHECK",5,7),("CONFIGFLOW",7,9)]
+prods=[("FEEDRATE",1,FR.A["launch_month"]),("QUOTEFLOW",3,5),("FORMCHECK",22,24),("CONFIGFLOW",28,30)]
 r=3
 for name,bstart,launch in prods:
     wt.cell(row=r,column=1,value=name).font=Font(bold=True)
@@ -96,10 +96,10 @@ for name,bstart,launch in prods:
 r+=1
 wt.cell(row=r,column=1,value="B = Build (quruluş)  ·  rəngli = Launch sonrası canlı/gəlir").font=Font(italic=True,size=9)
 wt.merge_cells(start_row=r,start_column=1,end_row=r,end_column=20); r+=2
-flows=["Ay 1: FEEDRATE MVP launch → komanda QUOTEFLOW build-ə keçir (boş qalma yox)",
- "Ay 5: QUOTEFLOW launch → nüvə komanda FORMCHECK-ə yönəlir",
- "Ay 7: FORMCHECK launch → CONFIGFLOW hazırlığı",
- "Ay 9: CONFIGFLOW launch → 4 məhsul paralel canlı, komanda miqyas + dəstək"]
+flows=["Ay 1: FEEDRATE MVP launch → gəlir başlayır",
+ "Ay 5: QUOTEFLOW launch → FAZA 1 tam (2 məhsul canlı)",
+ "Ay ~20: BREAKEVEN — 2 məhsul özünü sübut etdi, öz gəliri başlayır",
+ "FAZA 2 (öz gəliri ilə): Ay 24 FORMCHECK · Ay 30 CONFIGFLOW → 4 məhsul canlı"]
 for f in flows:
     wt.cell(row=r,column=1,value="• "+f).alignment=wrap; wt.merge_cells(start_row=r,start_column=1,end_row=r,end_column=30); wt.row_dimensions[r].height=18; r+=1
 
@@ -128,7 +128,7 @@ cols=["Ay","Tarix","FEEDRATE $","QUOTEFLOW $","FORMCHECK $","CONFIGFLOW $","ÜMU
  "Avadanlıq $","İnzibati+səyahət+bonus $","Stripe $","ÜMUMİ XƏRC $","NET $","Yığılmış kassa $"]
 ws_w=[6,9,11,12,12,12,13,8,8,11,9,9,11,11,10,9,9,12,11,14]
 for i,w in enumerate(ws_w,1): wm.column_dimensions[get_column_letter(i)].width=w
-title_row(wm,1,"48 AYLIQ BİRLƏŞMİŞ GƏLİR-XƏRC (KAYZEN portfel)",len(cols))
+title_row(wm,1,"48 AYLIQ GƏLİR-XƏRC (VERTEXA — 2 fazalı)",len(cols))
 header(wm,2,cols); wm.freeze_panes="C3"
 for r0 in rows:
     m=r0['m']; row=2+m
@@ -186,5 +186,5 @@ for j,m in zip((2,3,4,5),(12,24,36,48)):
     c=wd.cell(row=r,column=j,value=at(m)['head']); c.alignment=center; c.font=Font(bold=True)
 for cc in range(1,7): wd.cell(row=r,column=cc).border=border
 
-wb.save("KAYZEN-Portfel-Maliyye-48ay-v4.xlsx")
+wb.save("VERTEXA-Maliyye-Model.xlsx")
 print("OK Excel saved · vərəqlər:",wb.sheetnames)
